@@ -141,7 +141,8 @@ const tools = fs.readdirSync(ROOT, { withFileTypes: true })
     .filter(e => e.isDirectory())
     .map(e => e.name)
     .filter(n => !n.startsWith('.') && !n.startsWith('_') && !SKIP.has(n))
-    /* Chỉ cấp 1 — nhờ vậy asset-optimizer/web/ không bị nhận nhầm thành tool riêng. */
+    /* Chỉ cấp 1 — thư mục con bên trong một tool (lib/, tests/, browser/…) không
+       bị nhận nhầm thành tool riêng. */
     .filter(n => fs.existsSync(path.join(ROOT, n, 'index.html')))
     .map(describe)
     .filter(t => !t.hidden)
@@ -154,12 +155,21 @@ const banner = [
     ' */',
 ].join('\n');
 
-fs.writeFileSync(OUT, banner + '\n'
-    + 'window.TOOLS = ' + JSON.stringify(tools, null, 2) + ';\n'
-    + 'window.TOOLS_BUILT_AT = ' + JSON.stringify(new Date().toISOString()) + ';\n', 'utf8');
+const body = 'window.TOOLS = ' + JSON.stringify(tools, null, 2) + ';\n';
+const prev = fs.existsSync(OUT) ? fs.readFileSync(OUT, 'utf8') : '';
 
-console.log('tools-data.js: ' + tools.length + ' tool');
+/* Chỉ ghi khi danh sách thật sự đổi. Nếu lần nào cũng đóng dấu thời gian mới thì
+   serve.js — vốn dựng lại manifest mỗi lần khởi động — sẽ làm bẩn working tree
+   sau mỗi lần chạy serve.bat, dù không có gì thay đổi. */
+const changed = !prev.includes(body);
+if (changed) {
+    fs.writeFileSync(OUT, banner + '\n' + body
+        + 'window.TOOLS_BUILT_AT = ' + JSON.stringify(new Date().toISOString()) + ';\n', 'utf8');
+}
+
+console.log('tools-data.js: ' + tools.length + ' tool' + (changed ? '' : ' (không đổi)'));
 for (const t of tools) {
-    console.log('  [' + t.badge.padEnd(3) + '] ' + t.slug
-        + (t.pages.length ? ' (+' + t.pages.length + ' trang phụ)' : ''));
+    const extra = (t.pages || []).length;
+    console.log('  [' + String(t.badge).padEnd(3) + '] ' + t.slug
+        + (extra ? ' (+' + extra + ' trang phụ)' : ''));
 }
