@@ -12,7 +12,7 @@ window.TOOLS = [
     "pages": [],
     "hasTests": false,
     "hasReadme": true,
-    "updated": null,
+    "updated": "2026-08-21T08:31:15+07:00",
     "tags": [],
     "order": 0,
     "hidden": false
@@ -26,7 +26,7 @@ window.TOOLS = [
     "pages": [],
     "hasTests": false,
     "hasReadme": false,
-    "updated": null,
+    "updated": "2026-08-21T08:31:15+07:00",
     "tags": [],
     "order": 0,
     "hidden": false
@@ -45,7 +45,7 @@ window.TOOLS = [
     ],
     "hasTests": true,
     "hasReadme": false,
-    "updated": null,
+    "updated": "2026-08-21T08:31:15+07:00",
     "tags": [],
     "order": 0,
     "hidden": false
@@ -59,10 +59,10 @@ window.TOOLS = [
     "pages": [],
     "hasTests": true,
     "hasReadme": true,
-    "updated": null,
+    "updated": "2026-08-21T08:31:15+07:00",
     "tags": [],
     "order": 0,
     "hidden": false
   }
 ];
-window.TOOLS_BUILT_AT = "2026-08-21T01:30:06.185Z";
+window.TOOLS_BUILT_AT = "2026-08-21T01:31:24.838Z";
