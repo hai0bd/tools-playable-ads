@@ -1,0 +1,56 @@
+# Dựng lại danh sách tool rồi deploy cả repo lên GitHub Pages.
+#
+# Thêm tool mới = tạo thư mục có index.html rồi push. Workflow này quét lại và
+# card tự xuất hiện — không phải sửa dòng code nào của trang chủ.
+name: Deploy hub to Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Nhiều lần push liên tiếp thì chỉ giữ lần deploy mới nhất.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # BẮT BUỘC: mặc định checkout clone nông (depth=1), khi đó
+          # `git log -- <thư mục>` không tìm được commit cuối chạm vào thư mục
+          # và cột "cập nhật" trên mọi card sẽ trống.
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Dựng tools-data.js
+        run: node scripts/build-manifest.js
+
+      - name: Tắt Jekyll
+        # BẮT BUỘC: Pages mặc định chạy Jekyll, mà Jekyll bỏ qua mọi file và thư
+        # mục bắt đầu bằng "_". Không có file này thì chúng biến mất khỏi site
+        # một cách âm thầm, không báo lỗi gì.
+        run: touch .nojekyll
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+
+      - id: deployment
+        uses: actions/deploy-pages@v4

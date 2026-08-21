@@ -1,0 +1,110 @@
+/* Cùng ngôn ngữ thị giác với bốn tool: chung bảng màu, topbar, card gradient,
+   hover nhấc lên 1px và viền accent. Trang chủ phải nhìn như tool thứ năm,
+   không phải như một trang web khác. */
+:root {
+    --bg: #0b0d10;
+    --panel: #12151a;
+    --panel-soft: #171b21;
+    --line: #292f38;
+    --line-soft: #20252c;
+    --text: #f3f5f7;
+    --muted: #8b96a5;
+    --accent: #b9f34a;
+    --accent-ink: #111706;
+    --warning: #ffcc66;
+    --danger: #ff7b7b;
+    --radius: 18px;
+    --shadow: 0 24px 70px rgba(0, 0, 0, .28);
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { min-width: 320px; background: var(--bg); }
+body {
+    margin: 0;
+    min-height: 100vh;
+    color: var(--text);
+    background:
+        radial-gradient(circle at 78% -10%, rgba(185, 243, 74, .09), transparent 28rem),
+        linear-gradient(180deg, #0d1014 0, var(--bg) 25rem);
+    font: 15px/1.5 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+button, input { font: inherit; }
+button { color: inherit; }
+h1, h2, h3, p { margin: 0; }
+a { color: inherit; text-decoration: none; }
+
+/* ---------- topbar ---------- */
+.topbar { max-width: 1240px; margin: 0 auto; padding: 30px 34px 24px; display: flex; align-items: center; gap: 15px; }
+.brand-mark { width: 46px; height: 46px; display: grid; place-items: center; color: var(--accent-ink); background: var(--accent); border-radius: 13px; font-weight: 900; letter-spacing: -.05em; transform: rotate(-3deg); }
+.topbar h1 { font-size: 21px; letter-spacing: -.03em; }
+.topbar p { color: var(--muted); font-size: 13px; }
+.local-badge { margin-left: auto; padding: 7px 11px; display: flex; align-items: center; gap: 7px; border: 1px solid var(--line); border-radius: 999px; color: #b8c2ce; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; }
+.local-badge span { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 10px var(--accent); }
+
+.shell { max-width: 1240px; margin: 0 auto; padding: 0 34px 44px; }
+
+/* ---------- thanh lọc ---------- */
+.toolbar { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; flex-wrap: wrap; }
+.eyebrow { display: block; margin-bottom: 5px; color: var(--accent); font: 700 10px/1 ui-monospace, monospace; letter-spacing: .16em; }
+.toolbar h2 { font-size: 18px; letter-spacing: -.025em; }
+.search { width: 260px; padding: 9px 12px; color: var(--text); border: 1px solid var(--line); border-radius: 10px; outline: 0; background: #0e1115; font-size: 13px; }
+.search:focus { border-color: var(--accent); }
+.search::placeholder { color: #5f6b79; }
+.count { margin-left: auto; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+
+/* ---------- lưới card ---------- */
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
+
+.tool-card {
+    display: flex; flex-direction: column;
+    padding: 20px;
+    background: linear-gradient(180deg, rgba(22, 26, 32, .98), rgba(17, 20, 25, .98));
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: 0 18px 45px rgba(0, 0, 0, .18);
+    transition: border-color .15s ease, transform .15s ease, box-shadow .15s ease;
+}
+.tool-card:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: 0 22px 55px rgba(0, 0, 0, .3); }
+.tool-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+.tool-head { display: flex; align-items: center; gap: 13px; }
+.tool-head .brand-mark { width: 42px; height: 42px; font-size: 14px; flex: none; }
+.tool-name { font-size: 16px; font-weight: 650; letter-spacing: -.02em; }
+.tool-slug { margin-top: 2px; color: #6b7480; font: 10px/1.3 ui-monospace, SFMono-Regular, Consolas, monospace; }
+.tool-desc { margin-top: 14px; flex: 1; color: var(--muted); font-size: 13px; }
+
+.tool-meta { margin-top: 16px; padding-top: 13px; border-top: 1px solid var(--line-soft); display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.chip { padding: 4px 8px; border-radius: 999px; background: #1b2027; color: #94a1b0; font: 10px/1 ui-monospace, monospace; letter-spacing: .04em; }
+.chip.tests { color: var(--accent); background: rgba(185, 243, 74, .09); }
+.updated { margin-left: auto; color: #6b7480; font-size: 11px; }
+
+/* Link trang phụ nằm NGOÀI thẻ <a> của card — <a> lồng nhau là HTML không hợp lệ,
+   trình duyệt sẽ tự tách thẻ ra và làm hỏng layout. */
+.tool-extra { display: flex; gap: 7px; flex-wrap: wrap; padding: 0 20px 18px; margin-top: -6px; }
+.tool-extra a { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 5px 10px; border: 1px solid var(--line); border-radius: 9px; color: var(--muted); font-size: 11px; transition: border-color .15s ease, color .15s ease; }
+.tool-extra a:hover { border-color: var(--accent); color: var(--text); }
+
+.tool-wrap { display: flex; flex-direction: column; }
+.tool-wrap .tool-card { flex: 1; }
+
+/* Chỉ card nào có trang phụ mới bỏ bo góc dưới để nối liền với dải link bên dưới. */
+.tool-wrap.has-extra .tool-card { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+.tool-wrap.has-extra .tool-extra { border: 1px solid var(--line); border-top: 0; border-radius: 0 0 var(--radius) var(--radius); margin-top: 0; padding-top: 14px; background: rgba(14, 17, 21, .6); }
+.tool-wrap.has-extra:hover .tool-card, .tool-wrap.has-extra:hover .tool-extra { border-color: var(--accent); }
+.tool-wrap.has-extra:hover .tool-card { transform: none; }
+
+/* ---------- trạng thái rỗng ---------- */
+.empty { padding: 56px 28px; text-align: center; border: 1px dashed #3b4450; border-radius: 14px; background: rgba(9, 11, 14, .38); }
+.empty h3 { font-size: 15px; }
+.empty p { margin-top: 9px; color: var(--muted); font-size: 13px; }
+.empty code { padding: 3px 7px; border-radius: 6px; background: #1b2027; color: var(--accent); font: 12px/1 ui-monospace, monospace; }
+
+footer { max-width: 1240px; margin: 0 auto; padding: 0 34px 30px; color: #59616c; font-size: 11px; }
+footer code { color: #79828f; }
+
+@media (max-width: 640px) {
+    .topbar, .shell, footer { padding-left: 20px; padding-right: 20px; }
+    .count { margin-left: 0; }
+    .search { width: 100%; }
+}

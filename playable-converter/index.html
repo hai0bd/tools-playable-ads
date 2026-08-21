@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="dark">
+    <title>Playable Network Converter</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header class="topbar">
+        <div class="brand-mark">PC</div>
+        <div>
+            <h1>Playable Converter</h1>
+            <p>Chuyển đổi playable HTML giữa các mạng quảng cáo</p>
+        </div>
+        <div class="local-badge"><span></span> Local only</div>
+    </header>
+
+    <main class="shell">
+        <!-- FILE BAR -->
+        <section class="filebar">
+            <label class="drop-zone" id="drop-zone" for="file-input">
+                <input id="file-input" type="file" accept=".html,text/html" hidden>
+                <span class="upload-icon">⇧</span>
+                <strong>Kéo file HTML vào đây</strong>
+                <span>hoặc bấm để chọn file</span>
+                <small>File được xử lý hoàn toàn trên máy của bạn</small>
+            </label>
+
+            <div class="file-summary" id="file-summary" hidden>
+                <div class="file-icon">HTML</div>
+                <div class="file-copy">
+                    <strong id="file-name"></strong>
+                    <span id="file-meta"></span>
+                </div>
+                <div class="analysis" id="analysis" hidden>
+                    <div><span>Build</span><strong id="analysis-build">—</strong></div>
+                    <div><span>Mạng nguồn</span><strong id="analysis-network">—</strong></div>
+                    <div><span>Kết thúc</span><strong id="analysis-end">—</strong></div>
+                    <div><span>Chuột PC</span><strong id="analysis-mouse">—</strong></div>
+                </div>
+                <button class="text-button" id="clear-file" hidden>Xóa file</button>
+            </div>
+            <div class="notice warning" id="mode-warning" hidden></div>
+        </section>
+
+        <!-- STEP TABS -->
+        <nav class="steps" id="steps" aria-label="Bước xử lý" hidden>
+            <button class="step" type="button" data-step="assets"><span class="step-num">01</span> Asset nhúng</button>
+            <button class="step" type="button" data-step="mesh"><span class="step-num">02</span> Mesh 3D</button>
+            <button class="step" type="button" data-step="scripts"><span class="step-num">03</span> Scripts</button>
+            <button class="step active" type="button" data-step="output"><span class="step-num">04</span> Xuất và đóng gói</button>
+        </nav>
+
+        <!-- PANEL: Asset nhúng -->
+        <section class="step-panel card embedded-card" id="embedded-card" data-step="assets" hidden>
+            <div class="section-heading embedded-heading">
+                <div>
+                    <span class="eyebrow">EMBEDDED DATA</span>
+                    <h2>Base64 / Base122 trong file</h2>
+                </div>
+                <div class="embedded-heading-actions">
+                    <button class="text-button" id="toggle-embedded" type="button" aria-expanded="false">Mở chi tiết</button>
+                    <button class="text-button" id="reset-embedded" type="button">Khôi phục</button>
+                    <button class="secondary-button" id="download-edited" type="button">Tải HTML đã sửa</button>
+                </div>
+            </div>
+            <div class="embedded-summary" id="embedded-summary"></div>
+            <div class="embedded-kinds" id="embedded-kinds" hidden></div>
+            <div class="notice embedded-notice" id="embedded-notice" hidden></div>
+            <div class="embedded-list" id="embedded-list"></div>
+        </section>
+
+        <!-- PANEL: Mesh 3D -->
+        <section class="step-panel card" id="panel-mesh" data-step="mesh" hidden>
+            <div class="empty-state" id="mesh-empty" hidden>
+                <div class="empty-visual"><span></span><span></span><span></span></div>
+                <h3>Không có mesh 3D</h3>
+                <p>Playable này không có mesh 3D để thay (chỉ áp dụng cho Cocos 2.4.x có <code>__res</code>).</p>
+            </div>
+
+            <div class="mesh-body" id="mesh-body" hidden>
+                <div class="mesh-left">
+                    <div class="section-heading">
+                        <div>
+                            <span class="eyebrow">MESH 3D</span>
+                            <h2>Chọn mesh để thay</h2>
+                        </div>
+                        <input class="mesh-filter" id="mesh-filter" type="search" placeholder="Lọc #index / uuid…">
+                    </div>
+                    <div class="mesh-grid" id="mesh-grid"></div>
+                </div>
+
+                <div class="mesh-right">
+                    <div class="empty-state" id="replace-empty">
+                        <div class="empty-visual"><span></span><span></span><span></span></div>
+                        <h3>Chưa chọn mesh</h3>
+                        <p>Bấm một mesh ở bên trái để xem preview và thay thế.</p>
+                    </div>
+
+                    <div id="replace-body" hidden>
+                        <div class="section-heading">
+                            <div>
+                                <span class="eyebrow">ĐANG CHỌN</span>
+                                <h2 id="sel-title">Mesh #—</h2>
+                            </div>
+                            <button class="text-button" id="deselect" type="button">Bỏ chọn</button>
+                        </div>
+
+                        <div class="viewer-row">
+                            <div class="viewer-block">
+                                <span class="viewer-label">Hiện tại</span>
+                                <canvas class="viewer" id="viewer-old" width="240" height="240"></canvas>
+                                <small id="info-old" class="viewer-meta">—</small>
+                            </div>
+                            <div class="viewer-arrow">→</div>
+                            <div class="viewer-block">
+                                <span class="viewer-label">Model mới</span>
+                                <canvas class="viewer" id="viewer-new" width="240" height="240"></canvas>
+                                <small id="info-new" class="viewer-meta">chưa có</small>
+                            </div>
+                        </div>
+                        <small class="hint">Kéo chuột trên khung để xoay preview.</small>
+
+                        <label class="mesh-drop" id="model-drop" for="model-input">
+                            <input id="model-input" type="file" accept=".glb,.obj" hidden>
+                            <strong>Thả model mới (.glb / .obj)</strong>
+                            <small>Giữ format position/normal/uv0 · &lt; 65536 đỉnh</small>
+                        </label>
+                        <div class="notice warning" id="model-warning" hidden></div>
+
+                        <div class="fit-controls" id="orient-controls" hidden>
+                            <label class="fit-option"><input type="checkbox" id="auto-orient" checked> <span>Tự xoay khớp hướng mesh cũ (đồng xu/đĩa/vật dẹt)</span></label>
+                            <div class="orient-buttons">
+                                <span>Xoay tay:</span>
+                                <button type="button" id="rot-x" class="rot-btn">X 90°</button>
+                                <button type="button" id="rot-y" class="rot-btn">Y 90°</button>
+                                <button type="button" id="rot-z" class="rot-btn">Z 90°</button>
+                                <button type="button" id="rot-reset" class="rot-btn">Reset</button>
+                            </div>
+                            <div class="fit-info" id="orient-info"></div>
+                        </div>
+
+                        <div class="fit-controls" id="fit-controls" hidden>
+                            <label class="fit-option"><input type="checkbox" id="fit-size" checked> <span>Tự khớp kích thước mesh cũ (scale + căn giữa)</span></label>
+                            <label class="fit-option"><input type="checkbox" id="fit-stretch"> <span>Kéo giãn từng trục (lấp đầy đúng bbox, có thể méo)</span></label>
+                            <label class="fit-option"><input type="checkbox" id="uv-match"> <span>Khớp UV vào ô texture của mesh cũ (dùng chung màu/atlas; hợp khi part cũ là màu đặc)</span></label>
+                            <div class="fit-info" id="fit-info"></div>
+                        </div>
+
+                        <button class="primary-button" id="apply-button" disabled>
+                            <span>Áp dụng vào playable</span><span class="arrow">→</span>
+                        </button>
+                        <div class="save-note" id="apply-note" hidden></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- PANEL: Scripts -->
+        <section class="step-panel card" id="panel-scripts" data-step="scripts" hidden>
+            <div class="empty-state" id="script-empty" hidden>
+                <div class="empty-visual"><span></span><span></span><span></span></div>
+                <h3>Không có script</h3>
+                <p>Playable này không có file .js nào để sửa.</p>
+            </div>
+
+            <div class="script-body" id="script-body" hidden>
+                <div class="script-left">
+                    <div class="section-heading">
+                        <div>
+                            <span class="eyebrow">SCRIPTS</span>
+                            <h2>File JS trong playable</h2>
+                        </div>
+                        <input class="mesh-filter" id="script-filter" type="search" placeholder="Lọc tên / loại…">
+                    </div>
+                    <div class="script-list" id="script-list"></div>
+                </div>
+
+                <div class="script-right">
+                    <div class="empty-state" id="editor-empty">
+                        <div class="empty-visual"><span></span><span></span><span></span></div>
+                        <h3>Chưa chọn script</h3>
+                        <p>Bấm một file ở bên trái để xem và chỉnh sửa nội dung.</p>
+                    </div>
+
+                    <div id="editor-body" hidden>
+                        <div class="section-heading">
+                            <div>
+                                <span class="eyebrow">ĐANG SỬA</span>
+                                <h2 id="sc-title">—</h2>
+                            </div>
+                            <button class="text-button" id="sc-revert" hidden>Hoàn tác</button>
+                        </div>
+
+                        <div class="script-toolbar">
+                            <span class="script-kind" id="sc-kind">—</span>
+                            <span class="script-meta" id="sc-meta"></span>
+                            <span class="script-spacer"></span>
+                            <button class="text-button" id="sc-format" type="button">✨ Định dạng lại</button>
+                        </div>
+
+                        <textarea id="sc-editor" spellcheck="false" autocomplete="off" autocapitalize="off" wrap="off"></textarea>
+                        <div class="notice warning" id="sc-warning" hidden></div>
+
+                        <button class="primary-button" id="sc-apply" disabled>
+                            <span>Áp dụng vào playable</span><span class="arrow">→</span>
+                        </button>
+                        <div class="save-note" id="sc-note" hidden></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- PANEL: Xuất và đóng gói -->
+        <section class="step-panel card" id="panel-output" data-step="output" hidden>
+            <div class="output-grid">
+                <div class="output-config">
+                    <div class="section-heading">
+                        <div>
+                            <span class="eyebrow">OUTPUT</span>
+                            <h2>Mạng cần tạo</h2>
+                        </div>
+                        <button class="text-button" id="toggle-targets">Bỏ chọn tất cả</button>
+                    </div>
+
+                    <div class="network-grid">
+                        <label class="network-option applovin">
+                            <input type="checkbox" name="target" value="applovin" checked>
+                            <span class="checkmark">✓</span>
+                            <strong>AppLovin</strong>
+                            <small>mraid + analytics</small>
+                        </label>
+                        <label class="network-option mintegral">
+                            <input type="checkbox" name="target" value="mintegral" checked>
+                            <span class="checkmark">✓</span>
+                            <strong>Mintegral</strong>
+                            <small>install + lifecycle</small>
+                        </label>
+                        <label class="network-option unity">
+                            <input type="checkbox" name="target" value="unity" checked>
+                            <span class="checkmark">✓</span>
+                            <strong>Unity</strong>
+                            <small>mraid CTA</small>
+                        </label>
+                        <label class="network-option google">
+                            <input type="checkbox" name="target" value="google" checked>
+                            <span class="checkmark">✓</span>
+                            <strong>Google</strong>
+                            <small>ExitApi</small>
+                        </label>
+                        <label class="network-option pangle">
+                            <input type="checkbox" name="target" value="pangle" data-builds="super-html" checked>
+                            <span class="checkmark">✓</span>
+                            <strong>Pangle</strong>
+                            <small>openAppStore</small>
+                        </label>
+                    </div>
+
+                    <label class="build-field">
+                        <span>Kiểu build nguồn</span>
+                        <select id="build-select">
+                            <option value="saygames">SayGames — spNetwork · spVars</option>
+                            <option value="cocos-old">Cocos build cũ — clickTag · openAdUrl</option>
+                            <option value="luna">Luna — luna events · Bridge</option>
+                            <option value="super-html">Super HTML — __res · __zip</option>
+                            <option value="setup-config">setupConfig — added_api · openStorePage</option>
+                        </select>
+                    </label>
+
+                    <details class="advanced-options">
+                        <summary>Store URL tùy chọn</summary>
+                        <div class="url-fields">
+                            <label>Android URL<input id="android-url" type="url" placeholder="Giữ URL trong file gốc"></label>
+                            <label>iOS URL<input id="ios-url" type="url" placeholder="Giữ URL trong file gốc"></label>
+                        </div>
+                    </details>
+
+                    <button class="primary-button" id="convert-button" disabled>
+                        <span>Convert playable</span><span class="arrow">→</span>
+                    </button>
+                </div>
+
+                <div class="output-results">
+                    <div class="section-heading">
+                        <div>
+                            <span class="eyebrow">RESULTS</span>
+                            <h2>File đã tạo</h2>
+                        </div>
+                        <div class="results-actions">
+                            <label class="name-field">Tên (zip)
+                                <input id="project-name" type="text" placeholder="playable" spellcheck="false" autocomplete="off">
+                            </label>
+                            <button class="secondary-button" id="save-all" hidden>Tải tất cả (.zip)</button>
+                        </div>
+                    </div>
+
+                    <div class="empty-state" id="empty-state">
+                        <div class="empty-visual"><span></span><span></span><span></span></div>
+                        <h3>Chưa có file đầu ra</h3>
+                        <p>Chọn mạng và bấm Convert. Kết quả sẽ xuất hiện ở đây.</p>
+                    </div>
+                    <div class="result-list" id="result-list"></div>
+                    <div class="save-note" id="save-note" hidden></div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <span>Playable Converter · xử lý offline · <a href="decode.html" style="color:var(--accent)">🔧 Decode/Encode spVars</a></span>
+        <span id="version">v1.2</span>
+    </footer>
+
+    <script src="mesh-core.js"></script>
+    <script src="script-core.js"></script>
+    <script src="converter-core.js"></script>
+    <script src="mesh-panel.js"></script>
+    <script src="script-panel.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="vi">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="dark">
+    <title>Playable Ads Tools</title>
+    <meta name="description" content="Bộ tool cho quy trình làm playable ad — chạy hoàn toàn trong trình duyệt.">
+    <link rel="stylesheet" href="hub.css">
+</head>
+
+<body>
+    <header class="topbar">
+        <div class="brand-mark">PA</div>
+        <div>
+            <h1>Playable Ads Tools</h1>
+            <p>Bộ tool cho quy trình làm playable ad — chạy hoàn toàn trong trình duyệt</p>
+        </div>
+        <div class="local-badge"><span></span> Local only</div>
+    </header>
+
+    <main class="shell">
+        <div class="toolbar">
+            <div>
+                <span class="eyebrow">CÔNG CỤ</span>
+                <h2>Chọn tool để mở</h2>
+            </div>
+            <span class="count" id="count"></span>
+            <input class="search" id="search" type="search" placeholder="Tìm theo tên hoặc mô tả…" autocomplete="off"
+                aria-label="Tìm tool">
+        </div>
+
+        <!-- Lưới card do hub.js dựng từ window.TOOLS. Không sửa file này khi
+             thêm tool mới — chỉ cần tạo thư mục có index.html là đủ. -->
+        <div class="grid" id="grid"></div>
+        <div class="empty" id="empty" hidden></div>
+    </main>
+
+    <footer id="footer"></footer>
+
+    <!-- Dùng thẻ script chứ không fetch tools.json: Chrome chặn fetch khi trang
+         mở bằng file://, còn thẻ script thì không. Nhờ vậy double-click
+         index.html vẫn xem được đủ tool, không cần chạy server. -->
+    <script src="tools-data.js"></script>
+    <script src="hub.js"></script>
+</body>
+
+</html>

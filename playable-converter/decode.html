@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Decode / Encode — spVars & URL-encoded</title>
+<style>
+  :root { --bg:#0d1014; --panel:#161b22; --panel2:#1c2230; --line:#2b3444; --fg:#e6edf3; --mut:#8b98a9; --acc:#b9f34a; --acc2:#4c9ffe; --ok:#3fb950; --err:#ff7b7b; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:14px/1.5 -apple-system,Segoe UI,Roboto,Arial,sans-serif; background:var(--bg); color:var(--fg); }
+  header { padding:16px 22px; border-bottom:1px solid var(--line); display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; }
+  header h1 { font-size:16px; margin:0; font-weight:650; }
+  header .sub { color:var(--mut); font-size:12px; }
+  header .badge { margin-left:auto; font-size:11px; color:var(--mut); border:1px solid var(--line); border-radius:999px; padding:3px 10px; }
+  main { max-width:1400px; margin:0 auto; padding:18px 22px; }
+  .grid { display:grid; grid-template-columns:1fr auto 1fr; gap:16px; align-items:stretch; }
+  @media (max-width:860px){ .grid{ grid-template-columns:1fr; } .mid{ flex-direction:row !important; justify-content:center; } }
+  .col { display:flex; flex-direction:column; min-width:0; }
+  .col h2 { font-size:12px; text-transform:uppercase; letter-spacing:.05em; color:var(--mut); margin:0 0 8px; display:flex; align-items:center; gap:8px; }
+  .col h2 .tag { font-size:10px; padding:1px 7px; border-radius:6px; border:1px solid var(--line); color:var(--mut); }
+  .col h2 .tag.json { color:var(--ok); border-color:#1f4a2c; }
+  .col h2 .tag.text { color:var(--acc2); border-color:#20415f; }
+  .col h2 .tag.err { color:var(--err); border-color:#5c2427; }
+  textarea { flex:1; min-height:56vh; width:100%; padding:13px; resize:vertical; color:#d7e6c9; border:1px solid var(--line); border-radius:12px; outline:0; background:#0b0e12; font:12.5px/1.6 ui-monospace,SFMono-Regular,Consolas,monospace; tab-size:2; white-space:pre; overflow:auto; }
+  textarea:focus { border-color:var(--acc); }
+  textarea.code { white-space:pre-wrap; word-break:break-all; color:#9fd0ff; }
+  .mid { display:flex; flex-direction:column; justify-content:center; gap:12px; padding:0 4px; }
+  button { background:var(--acc); color:#0c1400; border:0; border-radius:10px; padding:11px 15px; font-weight:700; cursor:pointer; font-size:13px; white-space:nowrap; }
+  button.ghost { background:var(--panel2); color:var(--fg); border:1px solid var(--line); font-weight:600; }
+  button:disabled { opacity:.4; cursor:not-allowed; }
+  .col .row { display:flex; gap:8px; margin-top:8px; }
+  .col .row button { flex:1; }
+  .note { margin-top:9px; font-size:12px; padding:8px 11px; border-radius:9px; min-height:0; }
+  .note.err { background:#2d1517; color:var(--err); border:1px solid #5c2427; }
+  .note.ok { background:rgba(63,185,80,.08); color:#8fe0a0; border:1px solid #1f4a2c; }
+  .hint { color:var(--mut); font-size:11.5px; margin:2px 0 14px; }
+  code { background:var(--panel2); padding:1px 5px; border-radius:5px; font-size:11.5px; }
+  footer { max-width:1400px; margin:0 auto; padding:6px 22px 24px; color:#59616c; font-size:11px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Decode / Encode</h1>
+  <span class="sub">spVars &amp; mọi đoạn <code>decodeURIComponent('…')</code> · sửa an toàn, không lo <code>%22</code></span>
+  <span class="badge">● xử lý offline</span>
+</header>
+<main>
+  <p class="hint">Dán đoạn mã đã encode (hoặc cả câu <code>var spVars = JSON.parse(decodeURIComponent('…'))</code>) vào ô trái → <b>Giải mã</b> → sửa JSON ở ô phải → <b>Mã hoá lại</b> → chép ô trái dán về playable. Dấu <code>'</code> trong config được xử lý tự động.</p>
+  <div class="grid">
+    <!-- TRÁI: mã encoded -->
+    <div class="col">
+      <h2>Đoạn mã (encoded)</h2>
+      <textarea id="enc" class="code" placeholder="Dán đoạn mã ở đây… ví dụ:&#10;var spVars = JSON.parse(decodeURIComponent('%7B%22car_configs%22...'))"></textarea>
+      <div class="row">
+        <button id="copy-enc" class="ghost">📋 Chép ô này</button>
+        <button id="clear" class="ghost">Xoá hết</button>
+      </div>
+    </div>
+    <!-- GIỮA: nút -->
+    <div class="mid">
+      <button id="do-decode">Giải mã →</button>
+      <button id="do-encode" class="ghost">← Mã hoá lại</button>
+    </div>
+    <!-- PHẢI: nội dung decoded -->
+    <div class="col">
+      <h2>Nội dung (sửa ở đây) <span class="tag" id="kind">—</span></h2>
+      <textarea id="dec" placeholder="Nội dung sau khi giải mã sẽ hiện ở đây (JSON được tự căn đẹp)…"></textarea>
+      <div class="row">
+        <button id="fmt" class="ghost">✨ Căn đẹp JSON</button>
+        <button id="copy-dec" class="ghost">📋 Chép ô này</button>
+      </div>
+      <div class="note" id="note" style="display:none"></div>
+    </div>
+  </div>
+</main>
+<footer>Không có dữ liệu nào rời khỏi máy bạn · <span id="ver">decode v1</span></footer>
+
+<script src="decode-core.js"></script>
+<script>
+(function () {
+  "use strict";
+  var C = window.DecodeCore, $ = function (id) { return document.getElementById(id); };
+  var lastAnalysis = null;   // vỏ của lần giải mã gần nhất (để mã hoá lại giữ nguyên câu)
+
+  function setNote(msg, kind) {
+    var n = $("note"); if (!msg) { n.style.display = "none"; return; }
+    n.style.display = ""; n.className = "note " + (kind || ""); n.textContent = msg;
+  }
+  function setKind(text, cls) { var k = $("kind"); k.textContent = text; k.className = "tag " + (cls || ""); }
+
+  $("do-decode").onclick = function () {
+    var input = $("enc").value.trim();
+    if (!input) { setNote("Chưa có gì để giải mã. Dán đoạn mã vào ô trái.", "err"); return; }
+    try {
+      lastAnalysis = C.analyze(input);
+      var d = C.decode(lastAnalysis.payload);
+      $("dec").value = d.pretty;
+      if (d.isJSON) { setKind("JSON hợp lệ", "json"); setNote((lastAnalysis.hadWrapper ? "Đã tách khỏi vỏ decodeURIComponent và " : "") + "giải mã JSON thành công. Sửa xong bấm “Mã hoá lại”.", "ok"); }
+      else { setKind("text (không phải JSON)", "text"); setNote("Giải mã ra text thường (không phải JSON). Vẫn sửa & mã hoá lại được.", "ok"); }
+    } catch (e) { setNote("Lỗi giải mã: " + e.message, "err"); }
+  };
+
+  $("do-encode").onclick = function () {
+    var text = $("dec").value;
+    if (!text.trim()) { setNote("Ô nội dung đang trống.", "err"); return; }
+    // Nếu nội dung TRÔNG như JSON (bắt đầu bằng { hoặc [) thì BẮT BUỘC hợp lệ — không được
+    // âm thầm coi JSON hỏng là "text" rồi encode nguyên (dán về sẽ làm playable lỗi mà không báo).
+    var looksJSON = /^\s*[{\[]/.test(text);
+    if (looksJSON) {
+      var v = C.validateJSON(text);
+      if (!v.ok) {
+        setNote("JSON không hợp lệ" + (v.line ? " (dòng " + v.line + ", cột " + v.col + ")" : "") + " — sửa lại rồi mã hoá. Chưa ghi đè ô trái." + (v.error ? "\n" + v.error : ""), "err");
+        setKind("JSON lỗi", "err");
+        return;   // KHÔNG ghi đè ô trái
+      }
+    }
+    var payload = C.encode(text, { isJSON: looksJSON, quote: lastAnalysis ? lastAnalysis.quote : "'" });
+    $("enc").value = lastAnalysis ? C.reassemble(lastAnalysis, payload) : payload;
+    setNote(looksJSON ? "Đã mã hoá lại (JSON hợp lệ). Chép ô trái dán về playable." : "Đã mã hoá lại (dạng text). Chép ô trái dán về playable.", "ok");
+    setKind(looksJSON ? "JSON hợp lệ" : "text (không phải JSON)", looksJSON ? "json" : "text");
+  };
+
+  $("fmt").onclick = function () {
+    var text = $("dec").value; if (!text.trim()) return;
+    try { $("dec").value = JSON.stringify(JSON.parse(text), null, 2); setKind("JSON hợp lệ", "json"); setNote("Đã căn đẹp JSON.", "ok"); }
+    catch (e) { var v = C.validateJSON(text); setNote("Không căn được — JSON không hợp lệ" + (v.line ? " (dòng " + v.line + ", cột " + v.col + ")" : "") + ".", "err"); setKind("JSON lỗi", "err"); }
+  };
+
+  function copy(id) { var t = $(id); t.select(); try { document.execCommand("copy"); } catch (e) {} if (navigator.clipboard) navigator.clipboard.writeText(t.value).catch(function () {}); }
+  $("copy-enc").onclick = function () { copy("enc"); setNote("Đã chép đoạn mã.", "ok"); };
+  $("copy-dec").onclick = function () { copy("dec"); };
+  $("clear").onclick = function () { $("enc").value = ""; $("dec").value = ""; lastAnalysis = null; setKind("—", ""); setNote("", ""); };
+})();
+</script>
+</body>
+</html>

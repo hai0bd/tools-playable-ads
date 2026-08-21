@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="dark">
+    <title>Build Size Analyzer</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header class="topbar">
+        <div class="brand-mark">BS</div>
+        <div>
+            <h1>Build Size Analyzer</h1>
+            <p>Thống kê dung lượng build Cocos Creator</p>
+        </div>
+        <div class="local-badge"><span></span> Local only</div>
+    </header>
+
+    <main class="shell">
+        <!-- INPUT -->
+        <section class="card">
+            <div class="section-heading">
+                <div>
+                    <span class="eyebrow">INPUT</span>
+                    <h2 id="input-title">Chọn thư mục build</h2>
+                </div>
+                <div class="seg" id="source-switch">
+                    <button data-source="dir" class="active">Thư mục build</button>
+                    <button data-source="pkg">File đóng gói</button>
+                </div>
+                <button class="text-button" id="clear-btn" hidden>Chọn lại</button>
+            </div>
+
+            <label class="drop-zone" id="drop-zone" for="dir-input">
+                <input id="dir-input" type="file" webkitdirectory directory multiple hidden>
+                <span class="upload-icon">⇧</span>
+                <strong>Bấm để chọn thư mục build</strong>
+                <span>hoặc kéo thả vào đây</span>
+                <small>
+                    Chọn <code>build/web-mobile</code> để thống kê theo loại file.<br>
+                    Chọn cả thư mục project (có <code>assets/</code>) để hiện thêm tên asset.<br>
+                    Mở bằng <code>file://</code> thì kéo thả bị chặn — hãy bấm chọn, hoặc chạy <code>serve.bat</code>.
+                </small>
+            </label>
+
+            <label class="drop-zone" id="pkg-zone" for="pkg-input" hidden>
+                <input id="pkg-input" type="file" accept=".html,.htm" hidden>
+                <span class="upload-icon">⇩</span>
+                <strong>Bấm để chọn file playable đã đóng gói</strong>
+                <span>hoặc kéo thả file <code>.html</code> vào đây</span>
+                <small>
+                    Đọc file HTML một-file do Bingo xuất ra: giải mã <code>base122</code>,
+                    bung mục lục ZIP bên trong và thống kê <b>dung lượng thật sau nén</b>.<br>
+                    Đây mới là con số ad network nhận được, khác với dung lượng thư mục build.
+                </small>
+            </label>
+
+            <div class="busy" id="busy" hidden>
+                <span class="spinner"></span><span id="busy-text">Đang đọc…</span>
+            </div>
+
+            <div class="file-summary" id="summary" hidden>
+                <div class="file-icon">DIR</div>
+                <div class="file-copy">
+                    <strong id="summary-name"></strong>
+                    <span id="summary-meta"></span>
+                </div>
+                <span class="status-pill success" id="summary-pill">Đã đọc</span>
+            </div>
+
+            <div class="notice info" id="name-notice" hidden></div>
+            <div class="notice warning" id="budget-notice" hidden></div>
+        </section>
+
+        <!-- RESULT -->
+        <div id="result" hidden>
+            <div class="stats" id="stats"></div>
+
+            <section class="card">
+                <div class="section-heading">
+                    <div>
+                        <span class="eyebrow">PHÂN BỔ</span>
+                        <h2>Theo loại dữ liệu</h2>
+                    </div>
+                    <span class="hint" id="file-count"></span>
+                </div>
+                <div class="stack" id="stack"></div>
+                <div class="legend" id="legend"></div>
+                <div class="bars" id="bars"></div>
+            </section>
+
+            <section class="card">
+                <div class="section-heading">
+                    <div>
+                        <span class="eyebrow">CHI TIẾT</span>
+                        <h2>Cây dung lượng</h2>
+                    </div>
+                    <div class="seg" id="mode-switch">
+                        <button data-mode="kind" class="active">Theo loại</button>
+                        <button data-mode="asset">Theo asset</button>
+                    </div>
+                </div>
+                <p class="hint" style="margin:-4px 0 12px">
+                    Nháy đúp vào một file để mở nội dung ở tab mới — ảnh hiện trên nền carô kèm kích thước,
+                    JSON được format lại, file nhị phân hiện hex dump.
+                </p>
+                <div class="tree" id="tree"></div>
+            </section>
+        </div>
+    </main>
+
+    <script src="app.js"></script>
+</body>
+</html>

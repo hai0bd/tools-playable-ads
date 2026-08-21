@@ -1,0 +1,9 @@
+node_modules/
+.DS_Store
+Thumbs.db
+*.log
+
+# Fixture test tay của asset-optimizer: 4.1 MB (pitbull.glb 3.3 MB +
+# pitbull.png 804 KB). Không có tool nào tham chiếu tới, chỉ dùng để kéo thả
+# thử. Bỏ ra khỏi repo public cho nhẹ — muốn giữ thì xoá dòng này.
+asset-optimizer/_test/

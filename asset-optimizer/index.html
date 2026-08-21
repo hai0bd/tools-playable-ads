@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="vi">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="dark">
+    <title>Asset Optimizer</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <header class="topbar">
+        <div class="brand-mark">AO</div>
+        <div>
+            <h1>Asset Optimizer</h1>
+            <p>Nén texture, audio và model cho Cocos Creator — giữ nguyên UUID</p>
+        </div>
+        <div class="local-badge"><span></span> Local only</div>
+    </header>
+
+    <main class="shell">
+        <!-- ============ NHẬN FILE (chung cho mọi tab) ============ -->
+        <section class="filebar">
+            <label class="drop-zone" id="drop" for="in-files">
+                <input id="in-files" type="file" multiple hidden>
+                <span class="upload-icon">⇧</span>
+                <strong>Kéo file hoặc cả thư mục <code>assets</code> vào đây</strong>
+                <span>hoặc bấm để chọn file — kéo kèm <code>.meta</code> thì UUID được giữ nguyên</span>
+                <small>File được xử lý hoàn toàn trên máy của bạn, không gửi đi đâu</small>
+            </label>
+            <input id="in-folder" type="file" webkitdirectory directory multiple hidden>
+            <input id="in-build" type="file" webkitdirectory directory multiple hidden>
+
+            <div class="intake-bar" id="intake-bar" hidden>
+                <span id="intake-count" class="intake-count"></span>
+                <span id="intake-extra" class="intake-extra"></span>
+                <span class="intake-actions">
+                    <button class="text-button" id="pick-folder" type="button">Thêm thư mục…</button>
+                    <button class="text-button" id="pick-build" type="button">Chọn thư mục build…</button>
+                    <button class="text-button" id="clear" type="button">Bỏ hết</button>
+                </span>
+            </div>
+            <div class="notice warning" id="ship-note" hidden></div>
+            <div class="notice error" id="cap-note" hidden></div>
+        </section>
+
+        <!-- ============ TAB — mỗi định dạng một tab, sau này thêm 03, 04… ============ -->
+        <nav class="steps" id="tabs" hidden>
+            <button class="step active" type="button" data-tab="texture">
+                <span class="step-num">01</span> Texture
+                <span class="tab-badge" id="badge-texture" hidden></span>
+            </button>
+            <button class="step" type="button" data-tab="audio">
+                <span class="step-num">02</span> Audio
+                <span class="tab-badge" id="badge-audio" hidden></span>
+            </button>
+            <button class="step" type="button" data-tab="model">
+                <span class="step-num">03</span> Model
+                <span class="tab-badge" id="badge-model" hidden></span>
+            </button>
+        </nav>
+
+        <!-- ============ PANEL: TEXTURE ============ -->
+        <section class="tab-panel card" data-tab="texture" hidden>
+            <div class="panel-grid">
+                <div class="panel-left">
+                    <div class="section-heading">
+                        <div>
+                            <span class="eyebrow">TEXTURE</span>
+                            <h2>PNG · JPG → WebP</h2>
+                        </div>
+                    </div>
+                    <ul class="intake-list" id="list-texture"></ul>
+                    <div class="empty-note" id="empty-texture">Chưa có file ảnh nào — kéo PNG/JPG vào ô phía trên.</div>
+
+                    <div class="opts">
+                        <label class="opt-field">
+                            <span>Chất lượng WebP <em>chỉ áp dụng cho ảnh không dùng alpha</em></span>
+                            <input id="o-quality" type="number" min="1" max="99" value="90">
+                        </label>
+                        <label class="opt-field">
+                            <span>Ngưỡng PSNR (dB) <em>lossy dưới ngưỡng thì lùi về lossless</em></span>
+                            <input id="o-psnr" type="number" min="20" max="60" value="38">
+                        </label>
+                        <label class="opt-field">
+                            <span>Tiết kiệm tối thiểu (%) <em>dưới mức này thì giữ file gốc</em></span>
+                            <input id="o-mingain-tex" type="number" min="0" max="90" value="5">
+                        </label>
+                    </div>
+
+                    <button class="primary-button" id="run-texture" type="button" disabled>
+                        <span>Tối ưu texture</span><span class="arrow">→</span>
+                    </button>
+                </div>
+
+                <div class="panel-right">
+                    <div class="empty-state" id="empty-state-texture">
+                        <div class="empty-visual"><span></span><span></span><span></span></div>
+                        <h3>Chưa có kết quả</h3>
+                        <p>Thêm file ảnh rồi bấm <b>Tối ưu texture</b>. Bấm vào một dòng kết quả để so sánh trước / sau.</p>
+                    </div>
+                    <div id="results-texture" hidden>
+                        <div class="section-heading">
+                            <div>
+                                <span class="eyebrow">KẾT QUẢ</span>
+                                <h2 id="head-texture">Texture</h2>
+                            </div>
+                            <button class="secondary-button" id="dl-texture" type="button">Tải về</button>
+                        </div>
+                        <div class="summary" id="sum-texture"></div>
+                        <div class="r-list" id="rows-texture"></div>
+                        <div class="extras" id="extras-texture"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============ PANEL: AUDIO ============ -->
+        <section class="tab-panel card" data-tab="audio" hidden>
+            <div class="panel-grid">
+                <div class="panel-left">
+                    <div class="section-heading">
+                        <div>
+                            <span class="eyebrow">AUDIO</span>
+                            <h2>WAV · MP3 · OGG → AAC</h2>
+                        </div>
+                    </div>
+                    <ul class="intake-list" id="list-audio"></ul>
+                    <div class="empty-note" id="empty-audio">Chưa có file âm thanh nào — kéo WAV/MP3 vào ô phía trên.</div>
+
+                    <div class="opts">
+                        <label class="opt-field">
+                            <span>Bitrate AAC (kbps) <em>96k stereo là mức đủ cho playable</em></span>
+                            <input id="o-bitrate" type="number" min="32" max="320" value="96">
+                        </label>
+                        <label class="opt-field">
+                            <span>Tiết kiệm tối thiểu (%) <em>dưới mức này thì giữ file gốc</em></span>
+                            <input id="o-mingain-audio" type="number" min="0" max="90" value="5">
+                        </label>
+                        <label class="opt-check">
+                            <input id="o-mono" type="checkbox">
+                            <span>Trộn về mono <em>giảm nửa RAM khi Web Audio giải nén</em></span>
+                        </label>
+                    </div>
+
+                    <button class="primary-button" id="run-audio" type="button" disabled>
+                        <span>Tối ưu audio</span><span class="arrow">→</span>
+                    </button>
+                </div>
+
+                <div class="panel-right">
+                    <div class="empty-state" id="empty-state-audio">
+                        <div class="empty-visual"><span></span><span></span><span></span></div>
+                        <h3>Chưa có kết quả</h3>
+                        <p>Thêm file âm thanh rồi bấm <b>Tối ưu audio</b>. Kết quả kèm ước tính RAM khi giải nén.</p>
+                    </div>
+                    <div id="results-audio" hidden>
+                        <div class="section-heading">
+                            <div>
+                                <span class="eyebrow">KẾT QUẢ</span>
+                                <h2 id="head-audio">Audio</h2>
+                            </div>
+                            <button class="secondary-button" id="dl-audio" type="button">Tải về</button>
+                        </div>
+                        <div class="summary" id="sum-audio"></div>
+                        <div class="r-list" id="rows-audio"></div>
+                        <div class="extras" id="extras-audio"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============ PANEL: MODEL ============ -->
+        <section class="tab-panel card" data-tab="model" hidden>
+            <div class="panel-grid">
+                <div class="panel-left">
+                    <div class="section-heading">
+                        <div>
+                            <span class="eyebrow">MODEL</span>
+                            <h2>GLB — cắt xương và keyframe thừa</h2>
+                        </div>
+                    </div>
+                    <ul class="intake-list" id="list-model"></ul>
+                    <div class="empty-note" id="empty-model">Chưa có model nào — kéo file <code>.glb</code> vào ô phía trên.</div>
+
+                    <div class="opts">
+                        <label class="opt-field">
+                            <span>Dung sai góc (độ) <em>0 = chuyển động giữ nguyên tuyệt đối; 0.1 nhẹ hơn ~35%</em></span>
+                            <input id="o-tolerance" type="number" min="0" max="5" step="0.05" value="0">
+                        </label>
+                        <label class="opt-field">
+                            <span>Giữ thêm xương <em>regex tên xương gắn socket, ngăn cách bằng dấu phẩy</em></span>
+                            <input id="o-keepbones" type="text" placeholder="ví dụ: ^head\.x$, ^Bone\.001$">
+                        </label>
+                        <label class="opt-field">
+                            <span>Tiết kiệm tối thiểu (%) <em>dưới mức này thì giữ file gốc</em></span>
+                            <input id="o-mingain-model" type="number" min="0" max="90" value="5">
+                        </label>
+                    </div>
+
+                    <button class="primary-button" id="run-model" type="button" disabled>
+                        <span>Tối ưu model</span><span class="arrow">→</span>
+                    </button>
+                </div>
+
+                <div class="panel-right">
+                    <div class="empty-state" id="empty-state-model">
+                        <div class="empty-visual"><span></span><span></span><span></span></div>
+                        <h3>Chưa có kết quả</h3>
+                        <p>Thêm file <code>.glb</code> rồi bấm <b>Tối ưu model</b>. Mỗi kết quả kèm sai lệch góc đo được so với bản gốc.</p>
+                    </div>
+                    <div id="results-model" hidden>
+                        <div class="section-heading">
+                            <div>
+                                <span class="eyebrow">KẾT QUẢ</span>
+                                <h2 id="head-model">Model</h2>
+                            </div>
+                            <button class="secondary-button" id="dl-model" type="button">Tải về</button>
+                        </div>
+                        <div class="summary" id="sum-model"></div>
+                        <div class="r-list" id="rows-model"></div>
+                        <div class="extras" id="extras-model"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <div class="run-note" id="run-note"></div>
+    </main>
+
+    <!-- so sánh trước / sau -->
+    <div id="viewer" class="viewer" hidden>
+        <div class="viewer-bar">
+            <span id="viewer-name"></span>
+            <div class="viewer-tools">
+                <button class="secondary-button" data-bg="grid" type="button">Ô caro</button>
+                <button class="secondary-button" data-bg="black" type="button">Nền đen</button>
+                <button class="secondary-button" data-bg="white" type="button">Nền trắng</button>
+                <button class="secondary-button" id="viewer-close" type="button">Đóng ✕</button>
+            </div>
+        </div>
+        <div id="viewer-body" class="viewer-body"></div>
+    </div>
+
+    <script src="browser/img.js"></script>
+    <script src="browser/m4a.js"></script>
+    <script src="browser/glb.js"></script>
+    <script src="browser/zip.js"></script>
+    <script src="browser/meta.js"></script>
+    <script src="app.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,11 @@
+# Chốt kiểu xuống dòng để không bị diff rác khi làm việc lẫn giữa Windows và CI.
+* text=auto eol=lf
+
+# .bat phải là CRLF, cmd.exe không chạy đúng với LF.
+*.bat text eol=crlf
+
+*.glb binary
+*.png binary
+*.webp binary
+*.m4a binary
+*.zip binary
