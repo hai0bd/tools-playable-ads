@@ -7,3 +7,11 @@ Thumbs.db
 # pitbull.png 804 KB). Không có tool nào tham chiếu tới, chỉ dùng để kéo thả
 # thử. Bỏ ra khỏi repo public cho nhẹ — muốn giữ thì xoá dòng này.
 asset-optimizer/_test/
+
+# Worktree do Claude Code tạo nằm NGAY TRONG working tree, nên `git add -A` nuốt
+# nó thành gitlink (mode 160000) mà không có .gitmodules đi kèm. Khi đó bất kỳ
+# checkout nào chạy `git submodule update --recursive` — kể cả job
+# pages-build-deployment dựng sẵn của GitHub — đều gãy với
+# "No url found for submodule path".
+.claude/worktrees/
+.claude/settings.local.json
