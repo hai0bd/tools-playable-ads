@@ -5,6 +5,8 @@ const SKIP_DIRS = new Set(['library', 'temp', 'node_modules', '.git', 'profiles'
 
 const KIND_LABEL = {
     'texture': 'Texture',
+    'mesh': 'Mesh',
+    'anim': 'Animation',
     'mesh/anim': 'Mesh + Animation',
     'data': 'Scene / Shader',
     'engine:core': 'Engine core',
@@ -17,15 +19,16 @@ const KIND_LABEL = {
     'other': 'Khác',
 };
 const COLOR = {
-    'texture': 'var(--tex)', 'mesh/anim': 'var(--mesh)', 'data': 'var(--data)',
+    'texture': 'var(--tex)', 'mesh': 'var(--mesh)', 'anim': 'var(--anim)',
+    'mesh/anim': 'var(--mesh)', 'data': 'var(--data)',
     'engine:core': 'var(--eng)', 'engine:physics': 'var(--eng)', 'engine:spine': 'var(--eng)',
     'engine:dragonbones': 'var(--eng)', 'engine:box2d': 'var(--eng)',
     'audio': 'var(--warning)', 'script': 'var(--eng)', 'other': 'var(--muted)',
 };
 const BUDGET = 5 * 1024 * 1024;
 
-/** 'kind' = nhóm theo loại dữ liệu (mặc định, luôn đọc được kể cả khi thiếu .meta)
- *  'asset' = nhóm theo asset gốc (chỉ hữu ích khi tra được tên từ assets/) */
+/** 'kind' = nhóm theo loại dữ liệu (mặc định)
+ *  'asset' = nhóm theo asset gốc: prefab/scene nào ngốn bao nhiêu */
 const state = { res: null, mode: 'kind', source: 'dir' };
 
 /** Các file lá đang hiện trên cây, để nháy đúp mở được. Dựng lại mỗi lần render cây. */
@@ -222,11 +225,260 @@ function classify(relPath) {
     return 'other';
 }
 
+/* Đuôi .bin không nói lên mesh hay animation. Loại asset đọc được từ header CCON /
+   config.json mới chắc; khoá tham chiếu (_mesh, _clips…) là manh mối hạng hai.
+   Tách được hai thứ này mới biết nên đụng vào đâu: mesh thì giảm poly / nén vertex,
+   animation thì hạ sample rate hoặc bớt clip. */
+const TYPE_KIND = {
+    'cc.AnimationClip': 'anim', 'cc.SkeletalAnimationClip': 'anim', 'cc.AnimationGraph': 'anim',
+    'cc.Mesh': 'mesh', 'cc.Skeleton': 'mesh', 'cc.MorphRendering': 'mesh',
+};
+const KEY_KIND = {
+    '_mesh': 'mesh', '_skeleton': 'mesh', '_skinningRoot': 'mesh',
+    '_clips': 'anim', '_defaultClip': 'anim', 'clips': 'anim',
+};
+
+function refineKind(kind, path, sub) {
+    if (kind !== 'mesh/anim') return kind;
+    const known = sub && (TYPE_KIND[sub] || KEY_KIND[sub]);
+    if (known) return known;
+    // .bin trong native/ là dữ liệu đỉnh của mesh; trong import/ mà không rõ thì để nguyên nhóm chung.
+    if (/\/native\//.test(path)) return 'mesh';
+    if (/\/import\//.test(path)) return kind;
+    return 'data'; // .bin ngoài bundle là thứ khác hẳn — src/effect.bin chẳng hạn
+}
+
 const UUID_RE = /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(@[^.]+)?/i;
 function parseUuid(fileName) {
     const base = fileName.replace(/\.[^.]+$/, '');
     const m = base.match(UUID_RE);
     return m ? { full: m[1] + (m[2] || ''), root: m[1] } : null;
+}
+
+/** Đọc nội dung text của một entry, dùng chung cho chế độ thư mục lẫn file đóng gói. */
+const readText = e => (e.file ? e.file.text() : e.getFile().then(b => b.text()));
+
+/** Vài KB đầu của một entry, đủ để đọc phần đầu của file nhị phân. */
+async function readHead(e, bytes) {
+    const blob = e.file || await e.getFile();
+    const buf = await blob.slice(0, bytes).arrayBuffer();
+    const u8 = new Uint8Array(buf);
+    let s = '';
+    for (let i = 0; i < u8.length; i += 4096) s += String.fromCharCode.apply(null, u8.subarray(i, i + 4096));
+    return s;
+}
+
+/* Asset serialize ra nhị phân (.bin trong import/) dùng CCON: 4 byte "CCON", rồi
+   một document MessagePack mở đầu bằng các khoá __type__ / _name. Tên thật của
+   AnimationClip nằm đúng ở đó — không cần bộ giải MessagePack đầy đủ để lấy nó. */
+function cconBinInfo(head) {
+    if (head.slice(0, 4) !== 'CCON') return null;
+    // fixstr trong MessagePack: 0xa0 + độ dài; chuỗi dài hơn 31 ký tự thì dùng str8 (0xd9).
+    const grab = (key) => {
+        const marker = String.fromCharCode(0xa0 + key.length) + key;
+        const i = head.indexOf(marker);
+        if (i < 0) return null;
+        const p = i + marker.length;
+        const c = head.charCodeAt(p);
+        if (c >= 0xa0 && c <= 0xbf) return head.substr(p + 1, c - 0xa0);
+        if (c === 0xd9) return head.substr(p + 2, head.charCodeAt(p + 1));
+        return null;
+    };
+    const name = grab('_name');
+    return name ? { name, type: grab('__type__') } : null;
+}
+
+/* Cocos nén uuid 36 ký tự thành chuỗi base64 22 ký tự khi ghi vào config.json.
+   Đây là bản chép lại decodeUuid của engine để dịch ngược về dạng có gạch nối. */
+const B64_KEYS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+const B64_VALUES = (() => {
+    const v = new Array(128).fill(64);
+    for (let i = 0; i < 64; i++) v[B64_KEYS.charCodeAt(i)] = i;
+    return v;
+})();
+const HEX = '0123456789abcdef';
+const UUID_SLOTS = [0, 1, 2, 3, 4, 5, 6, 7, 9, 10, 11, 12, 14, 15, 16, 17, 19, 20, 21, 22,
+    24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35];
+
+function decodeUuid(short) {
+    const str = String(short);
+    const at = str.indexOf('@');
+    const base = at < 0 ? str : str.slice(0, at);
+    const suffix = at < 0 ? '' : str.slice(at); // giữ nguyên phần @sub-asset
+    const out = new Array(36).fill('-'); // 4 vị trí gạch nối không nằm trong UUID_SLOTS
+    out[0] = base[0];
+    out[1] = base[1];
+    for (let i = 2, j = 2; i < 22; i += 2) {
+        const lhs = B64_VALUES[base.charCodeAt(i)];
+        const rhs = B64_VALUES[base.charCodeAt(i + 1)];
+        out[UUID_SLOTS[j++]] = HEX[lhs >> 2];
+        out[UUID_SLOTS[j++]] = HEX[((lhs & 3) << 2) | (rhs >> 4)];
+        out[UUID_SLOTS[j++]] = HEX[rhs & 15];
+    }
+    return base.length === 22 ? out.join('') + suffix : str;
+}
+
+/* Build vứt tên file asset đi, nhưng giữ lại hai thứ vì runtime cần chúng:
+   tên prefab/scene/clip/material, và quan hệ phụ thuộc giữa các asset.
+   Ghép hai thứ đó lại là suy ra được "cục mesh 2 MB này thuộc prefab nào". */
+
+/** File import là CCON:
+ *  [version, uuids, strings, classes, masks, instances, types, refs, dObjs, dKeys, dUuids].
+ *  File "pack" gộp nhiều asset: phần tử 5 là mảng các sub-file dạng
+ *  [instances, types, refs, dObjs, dKeys, dUuids]. */
+function cconName(inst, types, classes, masks) {
+    const head = inst && inst[0];
+    let cls = null;
+    if (Array.isArray(head)) cls = masks && masks[head[0]] ? classes[masks[head[0]][0]] : null;
+    else if (Array.isArray(types) && types.length) cls = classes[types[0]];
+    if (!cls || !Array.isArray(cls[1]) || !cls[1].includes('_name')) return null;
+    const name = Array.isArray(head) ? head.find(v => typeof v === 'string') : (head && head._name);
+    // cc.Mesh cũng mở đầu bằng một chuỗi — nhưng đó là ".bin", phần mở rộng chứ không phải tên.
+    return name && name.charAt(0) !== '.' ? name : null;
+}
+
+/** Bóc một asset trong CCON: tên riêng (nếu class của nó có `_name`) và các uuid nó dùng. */
+function cconAsset(sub, shared, strings, classes, masks) {
+    const inst = sub[0], types = sub[1], dKeys = sub[4], dUuids = sub[5];
+    const deps = [];
+    if (Array.isArray(dUuids)) {
+        dUuids.forEach((ui, i) => {
+            const u = shared && shared[ui];
+            if (!u) return;
+            const k = dKeys ? dKeys[i] : null;
+            // key >= 0 là chỉ số trong bảng chuỗi (_mesh, mainTexture…); key âm là chỉ số mảng, bỏ qua.
+            const key = (typeof k === 'number' && k >= 0 && strings) ? strings[k] : null;
+            deps.push({ uuid: u, key });
+        });
+    }
+    return { name: cconName(inst, types, classes, masks), deps };
+}
+
+/** Lan tên từ asset có tên sang asset nó dùng. 4 chặng là đủ cho
+ *  prefab → material → texture, sâu hơn thì cái tên cũng hết ý nghĩa. */
+const MAX_HOP = 4;
+/* Vài khoá chỉ mô tả cấu trúc serialize chứ không nói asset đóng vai gì — hiện ra chỉ tổ rối. */
+const DULL_KEYS = new Set(['value', 'data', 'target', 'targetInfo', 'root', 'asset', 'scene', 'node', '_parent', '_prefab']);
+/** Asset dùng chung thì KHÔNG được lấy tên một chủ bất kỳ — thứ tự duyệt là ngẫu nhiên,
+ *  nhãn sẽ vu oan cho một prefab. Xếp tên theo abc rồi ghi rõ là dùng chung. */
+function ownerLabel(list) {
+    if (list.length === 1) return list[0];
+    const sorted = [...list].sort();
+    const shown = sorted.slice(0, 2).join(', ');
+    return 'Dùng chung: ' + shown + (sorted.length > 2 ? ' +' + (sorted.length - 2) : '');
+}
+
+function spreadNames(assets, map) {
+    const label = new Map();
+    let frontier = [];
+    // `roots` giữ nguyên danh sách tên chủ để chặng sau còn truyền tiếp được — nếu chỉ
+    // giữ chuỗi đã rút gọn thì texture nằm dưới material dùng chung sẽ mất dấu chủ thật.
+    for (const [u, a] of assets) if (a.name) { label.set(u, { name: a.name, sub: null, roots: [a.name] }); frontier.push(u); }
+
+    for (let hop = 0; hop < MAX_HOP && frontier.length; hop++) {
+        const next = new Map(); // uuid → { owners: Set tên chủ, key: vai trò }
+        for (const u of frontier) {
+            const roots = label.get(u).roots;
+            const a = assets.get(u);
+            if (!a) continue;
+            for (const d of a.deps) {
+                if (label.has(d.uuid)) continue; // chặng gần hơn thì sát nghĩa hơn, giữ nguyên
+                const key = d.key && !DULL_KEYS.has(d.key) ? d.key : null;
+                let rec = next.get(d.uuid);
+                if (!rec) next.set(d.uuid, rec = { owners: new Set(), key });
+                for (const r of roots) rec.owners.add(r);
+                if (!rec.key) rec.key = key;
+            }
+        }
+        // Tên nhóm chỉ gồm tên chủ, vai trò để riêng — để mọi asset của một prefab gộp chung một nhánh.
+        for (const [u, rec] of next) {
+            const roots = [...rec.owners];
+            label.set(u, { name: ownerLabel(roots), sub: rec.key, roots });
+        }
+        frontier = [...next.keys()];
+    }
+
+    for (const [u, hit] of label) {
+        if (!map.has(u)) map.set(u, hit);
+        const root = u.split('@')[0];
+        if (!map.has(root)) map.set(root, hit);
+    }
+}
+
+/** Dựng bảng uuid → tên từ chính bản build: config.json cho asset load-by-path,
+ *  đồ thị phụ thuộc trong import/ cho phần còn lại. Chạy được cả với file đóng gói. */
+async function buildBuildNameMap(entries, onProgress) {
+    const configs = entries.filter(e => /(^|\/)config\.json$/i.test(e.path));
+    const map = new Map();
+    const assets = new Map();
+    let bundles = 0, done = 0;
+
+    for (const c of configs) {
+        let cfg;
+        try { cfg = JSON.parse(await readText(c)); } catch (_) { continue; }
+        if (!Array.isArray(cfg.uuids)) continue;
+        bundles++;
+        const dir = c.path.slice(0, c.path.lastIndexOf('/') + 1);
+        const bundle = cfg.name || dir.split('/').filter(Boolean).pop() || 'bundle';
+
+        // 1) Vài asset load bằng đường dẫn có sẵn tên thật trong config.json.
+        for (const idx of Object.keys(cfg.paths || {})) {
+            const rec = cfg.paths[idx];
+            const short = cfg.uuids[Number(idx)];
+            if (!short || !rec) continue;
+            const dbPath = String(Array.isArray(rec) ? rec[0] : rec);
+            const type = Array.isArray(rec) && Array.isArray(cfg.types) ? cfg.types[rec[1]] : null;
+            const full = decodeUuid(short);
+            const hit = { name: bundle + '/' + dbPath, sub: type || null };
+            map.set(full, hit);
+            if (!map.has(full.split('@')[0])) map.set(full.split('@')[0], hit);
+        }
+
+        // 2) Phần còn lại suy từ đồ thị phụ thuộc.
+        const importDir = dir + (cfg.importBase || 'import') + '/';
+        const jsons = entries.filter(e => e.path.endsWith('.json') && e.path.startsWith(importDir));
+        for (const f of jsons) {
+            let j;
+            try { j = JSON.parse(await readText(f)); } catch (_) { continue; }
+            if (!Array.isArray(j)) continue;
+            const stem = f.path.split('/').pop().replace(/\.json$/, '');
+            const shared = Array.isArray(j[1]) ? j[1].map(decodeUuid) : null;
+            const strings = Array.isArray(j[2]) ? j[2] : null;
+            const classes = Array.isArray(j[3]) ? j[3] : [];
+            const masks = Array.isArray(j[4]) ? j[4] : null;
+            const pack = cfg.packs && cfg.packs[stem];
+            if (pack && Array.isArray(j[5]) && Array.isArray(j[5][0])) {
+                j[5].forEach((sub, i) => {
+                    const u = decodeUuid(cfg.uuids[pack[i]]);
+                    if (u) assets.set(u, cconAsset(sub, shared, strings, classes, masks));
+                });
+            } else {
+                assets.set(decodeUuid(stem), cconAsset(j.slice(5), shared, strings, classes, masks));
+            }
+            if (++done % 20 === 0 && onProgress) {
+                onProgress(done);
+                await new Promise(r => setTimeout(r, 0));
+            }
+        }
+
+        // 3) Asset lưu nhị phân (AnimationClip là chính) mang sẵn tên thật trong header CCON.
+        //    Chỉ quét trong import/ — .bin ở native/ là dữ liệu đỉnh của mesh, không có header này.
+        const bins = entries.filter(e => e.path.endsWith('.bin') && e.path.startsWith(importDir));
+        for (const f of bins) {
+            let info = null;
+            try { info = cconBinInfo(await readHead(f, 4096)); } catch (_) { /* đọc hỏng thì bỏ qua */ }
+            if (!info) continue;
+            const u = decodeUuid(f.path.split('/').pop().replace(/\.bin$/, ''));
+            map.set(u, { name: info.name, sub: info.type || null });
+            if (++done % 20 === 0 && onProgress) {
+                onProgress(done);
+                await new Promise(r => setTimeout(r, 0));
+            }
+        }
+    }
+
+    spreadNames(assets, map);
+    return { map, bundles, assetCount: assets.size };
 }
 
 /** Đọc mọi .meta trong assets/ để dịch uuid thành tên asset dễ đọc. */
@@ -262,6 +514,7 @@ function prepare(buildFiles, nameMap) {
         const hit = u && (nameMap.get(u.full) || nameMap.get(u.root));
         f.assetName = hit ? hit.name : null;
         f.subName = hit && hit.sub ? hit.sub : null;
+        f.kind = refineKind(f.kind, f.path, f.subName);
     }
     const byKind = {}, rawByKind = {};
     for (const f of buildFiles) {
@@ -474,18 +727,21 @@ function render(res, meta) {
     $('file-count').textContent = res.count + ' file';
     $('summary-name').textContent = meta.rootName;
     $('summary-meta').textContent = res.count + ' file · ' + MB(res.total) + ' MB' +
-        (meta.metaCount ? ' · đọc ' + meta.metaCount + ' file .meta' : '');
+        (meta.bundles ? ' · suy tên từ ' + meta.bundles + ' bundle' : '') +
+        (meta.metaCount > 0 ? ' · đọc ' + meta.metaCount + ' file .meta' : '');
     $('summary').hidden = false;
     $('clear-btn').hidden = false;
 
     if (meta.pkg) {
         $('name-notice').innerHTML = 'Số liệu là <b>dung lượng sau nén trong ZIP</b> — chi phí thật của từng file ' +
             'trong gói, không phải kích thước gốc. Cột <code>% nén</code> gần 100% nghĩa là dữ liệu đã nén sẵn ' +
-            '(ảnh, âm thanh): cắt bao nhiêu byte ở đó là giảm đúng bấy nhiêu ở file cuối.';
+            '(ảnh, âm thanh): cắt bao nhiêu byte ở đó là giảm đúng bấy nhiêu ở file cuối.' +
+            (meta.bundles ? ' Tên asset suy ra từ dữ liệu trong gói: đó là prefab/scene đang dùng nó, không phải tên file gốc.'
+                : ' Gói này không có <code>config.json</code> nên tên asset chỉ là uuid rút gọn.');
         $('name-notice').hidden = false;
-    } else if (meta.metaCount === 0) {
-        $('name-notice').innerHTML = 'Không tìm thấy <code>assets/</code> nên tên asset hiển thị dưới dạng uuid rút gọn. ' +
-            'Kéo cả thư mục project vào để thấy tên thật.';
+    } else if (meta.metaCount === 0 && !meta.bundles) {
+        $('name-notice').innerHTML = 'Không tìm thấy <code>assets/</code> lẫn <code>config.json</code> nên tên asset hiển thị ' +
+            'dưới dạng uuid rút gọn. Kéo cả thư mục project vào để thấy tên thật.';
         $('name-notice').hidden = false;
     } else {
         $('name-notice').hidden = true;
@@ -685,18 +941,25 @@ async function process(entries, rootName) {
 
     if (!buildFiles.length) { fail('Không tìm thấy file build nào trong thư mục này.'); return; }
 
+    busy('Đang đọc dữ liệu trong build để tra tên…');
+    const cfg = await buildBuildNameMap(entries, n => busy('Đang đọc dữ liệu build… ' + n + ' file'));
+
     busy('Đang đọc .meta để tra tên asset…');
     const { map, metaCount } = await buildNameMap(entries, (d, t) => busy('Đang đọc .meta… ' + d + '/' + t));
 
+    // config.json luôn có; .meta chính xác hơn (đúng tên file nguồn) nên được đè lên.
+    const names = new Map(cfg.map);
+    for (const [k, v] of map) names.set(k, v);
+
     busy('Đang tổng hợp…');
     await new Promise(r => setTimeout(r, 0));
-    const res = prepare(buildFiles, map);
+    const res = prepare(buildFiles, names);
 
     $('busy').hidden = true;
-    render(res, { rootName, metaCount });
+    render(res, { rootName, metaCount, bundles: cfg.bundles });
 }
 
-/** Luồng cho file playable đã đóng gói. Không có .meta nên tên asset chỉ là uuid. */
+/** Luồng cho file playable đã đóng gói. Không có .meta, tên asset tra từ config.json trong gói. */
 async function processPackage(file) {
     busy('Đang đọc file…');
     await new Promise(r => setTimeout(r, 0));
@@ -707,11 +970,14 @@ async function processPackage(file) {
         fail(err.message);
         return;
     }
+    busy('Đang đọc dữ liệu trong build để tra tên…');
+    const cfg = await buildBuildNameMap(parsed.entries, n => busy('Đang đọc dữ liệu build… ' + n + ' file'));
+
     busy('Đang tổng hợp…');
     await new Promise(r => setTimeout(r, 0));
-    const res = prepare(parsed.entries, new Map());
+    const res = prepare(parsed.entries, cfg.map);
     $('busy').hidden = true;
-    render(res, { rootName: file.name, metaCount: -1, pkg: parsed.pkg });
+    render(res, { rootName: file.name, metaCount: -1, bundles: cfg.bundles, pkg: parsed.pkg });
 }
 
 function busy(text) {

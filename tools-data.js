@@ -12,7 +12,7 @@ window.TOOLS = [
     "pages": [],
     "hasTests": false,
     "hasReadme": true,
-    "updated": "2026-08-21T08:31:15+07:00",
+    "updated": "2026-08-21T08:50:11+07:00",
     "tags": [],
     "order": 0,
     "hidden": false
@@ -65,4 +65,4 @@ window.TOOLS = [
     "hidden": false
   }
 ];
-window.TOOLS_BUILT_AT = "2026-08-21T01:31:24.838Z";
+window.TOOLS_BUILT_AT = "2026-09-09T06:28:35.977Z";
