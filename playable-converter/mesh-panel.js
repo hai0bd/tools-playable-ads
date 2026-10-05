@@ -4,6 +4,9 @@
 // playable" gọi opts.onApply(newHtml) để converter đưa vào pipeline convert/zip.
 // Port từ playable-mesh-replacer/app.js — chỉ đổi entry (load thay file.text) và
 // exit (onApply thay download). Preview 3D là rasterizer phần mềm trên canvas 2D.
+// Hai backend đọc/ghi mesh: Cocos 2.4 (mesh-core, window.__res) và Luna/Unity (luna-core,
+// data.blob nén Brotli). Phần xử lý model mới (đọc GLB/OBJ, xoay, khớp bbox, UV) dùng chung
+// của mesh-core vì chúng không phụ thuộc engine.
 (function () {
     "use strict";
     var core = window.MeshReplacer;
@@ -11,12 +14,14 @@
 
     var opts = {};
     var state = {
+        backend: core,       // core (Cocos) hoặc LunaCore.meshBackend
         analysis: null,
         fileName: "",
         selected: -1,        // mesh index
         oldBounds: null,     // bbox mesh đang chọn {mn,mx}
         oldPos: null,        // mọi đỉnh mesh cũ (đầu vào auto-orient)
         newModel: null,      // geometry model mới (raw, đã bake node transform) {pos,nrm,uv,idx}
+        fullModel: null,     // cả file model vừa thả; newModel có thể là 1 object tách từ đây
         newModelName: "",
         modelRot: [1, 0, 0, 0, 1, 0, 0, 0, 1], // ma trận xoay áp lên model mới (auto + tay)
         _autoAligned: false,
@@ -29,7 +34,8 @@
     var el = {};
     function $(id) { return document.getElementById(id); }
     ["mesh-body", "mesh-empty", "mesh-filter", "mesh-grid", "replace-empty", "replace-body", "sel-title", "deselect",
-        "viewer-old", "viewer-new", "info-old", "info-new", "model-drop", "model-input", "model-warning",
+        "viewer-old", "viewer-new", "info-old", "info-new", "model-drop", "model-input", "model-warning", "model-drop-hint",
+        "object-controls", "model-object",
         "orient-controls", "auto-orient", "rot-x", "rot-y", "rot-z", "rot-reset", "orient-info",
         "fit-controls", "fit-size", "fit-stretch", "fit-info", "uv-match",
         "apply-button", "apply-note"
@@ -137,20 +143,24 @@
         canvas.addEventListener("touchstart", down, { passive: false }); canvas.addEventListener("touchmove", move, { passive: false }); canvas.addEventListener("touchend", up);
     }
 
+    // Giới hạn số đỉnh của model mới: Cocos ghi index 16-bit, Luna tự chuyển sang 32-bit khi cần.
+    function maxVerts() { return state.backend.maxVertices || 65535; }
+
     // ───────────────────────── render mesh grid ─────────────────────────
     function renderMeshGrid() {
         var grid = el["mesh-grid"]; grid.innerHTML = "";
         var filter = (el["mesh-filter"].value || "").toLowerCase();
         state.analysis.meshes.forEach(function (mesh) {
-            var label = "#" + mesh.index + " " + (mesh.binUuid || "");
+            var label = "#" + mesh.index + " " + (mesh.label || mesh.binUuid || "");
             if (filter && label.toLowerCase().indexOf(filter) < 0) return;
             var cell = document.createElement("div");
             cell.className = "mesh-cell" + (mesh.index === state.selected ? " selected" : "") + (mesh._edited ? " edited" : "");
             cell.setAttribute("data-index", mesh.index);
+            cell.title = label;
             var canvas = document.createElement("canvas");
             canvas.width = 128; canvas.height = 128;
             cell.appendChild(canvas);
-            var name = document.createElement("div"); name.className = "cell-name"; name.textContent = "#" + mesh.index;
+            var name = document.createElement("div"); name.className = "cell-name"; name.textContent = "#" + mesh.index + (mesh.name ? " " + mesh.name : "");
             var meta = document.createElement("div"); meta.className = "cell-meta"; meta.textContent = mesh.verts + "v · " + mesh.tris + "t" + (mesh.submeshes > 1 ? " · " + mesh.submeshes + "sub" : "");
             cell.appendChild(name); cell.appendChild(meta);
             cell.addEventListener("click", function () { selectMesh(mesh.index); });
@@ -161,8 +171,14 @@
 
     // ───────────────────────── select mesh ─────────────────────────
     function showReplaceEmpty() { el["replace-empty"].hidden = false; el["replace-body"].hidden = true; }
+    function meshInfo(mesh) {
+        return mesh.verts + " đỉnh · " + mesh.tris + " tam giác" + (mesh.submeshes > 1 ? " · " + mesh.submeshes + " submesh/material" : "") +
+            (mesh.skinned ? " · có skin" : "") + (mesh.blendShapes ? " · " + mesh.blendShapes + " blend shape" : "") +
+            (mesh.binUuid ? " · " + mesh.binUuid.slice(0, 8) : mesh.path ? " · " + mesh.path.split("/").pop() : "");
+    }
     function selectMesh(index) {
-        state.selected = index; state.newModel = null; state.newModelName = "";
+        state.selected = index; state.newModel = null; state.fullModel = null; state.newModelName = "";
+        el["object-controls"].hidden = true;
         state.selectedTexKey = null; state.newTexDataUri = null;
         var mesh = state.analysis.meshes[index];
         state.oldBounds = trisBounds(meshTriangles(mesh.geometry));
@@ -170,8 +186,9 @@
         state.oldUvBox = uvBoxOf(mesh.geometry);
         state.modelRot = [1, 0, 0, 0, 1, 0, 0, 0, 1]; state._autoAligned = false;
         el["replace-empty"].hidden = true; el["replace-body"].hidden = false;
-        el["sel-title"].textContent = "Mesh #" + index;
-        el["info-old"].textContent = mesh.verts + " đỉnh · " + mesh.tris + " tam giác" + (mesh.submeshes > 1 ? " · " + mesh.submeshes + " submesh/material" : "") + (mesh.binUuid ? " · " + mesh.binUuid.slice(0, 8) : "");
+        el["sel-title"].textContent = "Mesh #" + index + (mesh.name ? " · " + mesh.name : "");
+        el["sel-title"].title = mesh.label || "";
+        el["info-old"].textContent = meshInfo(mesh);
         el["info-new"].textContent = "chưa có";
         el["model-warning"].hidden = true; el["fit-controls"].hidden = true; el["fit-info"].textContent = "";
         el["orient-controls"].hidden = true; el["orient-info"].textContent = "";
@@ -191,17 +208,42 @@
             var buf = await file.arrayBuffer();
             var model = core.loadModel(buf, file.name);
             if (!model.pos.length) throw new Error("Model rỗng (0 đỉnh).");
-            state.newModel = model; state.newModelName = file.name;
-            el["orient-controls"].hidden = false; el["fit-controls"].hidden = false;
-            state.anglesNew.x = 0.5; state.anglesNew.y = 0.6;
-            computeAutoOrient();
-            refreshNewPreview();
+            state.fullModel = model; state.newModelName = file.name;
+            fillObjectPicker(model);
+            useObject(-1);
         } catch (err) {
-            state.newModel = null; el["orient-controls"].hidden = true; el["fit-controls"].hidden = true;
+            state.newModel = null; state.fullModel = null;
+            el["orient-controls"].hidden = true; el["fit-controls"].hidden = true; el["object-controls"].hidden = true;
             el["model-warning"].textContent = "Lỗi đọc model: " + err.message; el["model-warning"].hidden = false;
             el["info-new"].textContent = "lỗi";
             updateApplyState();
         }
+    }
+    // File nhiều object (FBX "Hoe/Shovel/Spoon", xe tách thân + bánh…): cho chọn một object hay lấy cả file.
+    function fillObjectPicker(model) {
+        var objects = model.objects || [], select = el["model-object"];
+        select.innerHTML = "";
+        el["object-controls"].hidden = objects.length < 2;
+        if (objects.length < 2) return;
+        var all = document.createElement("option");
+        all.value = "-1";
+        all.textContent = "Tất cả (" + objects.length + " object)";
+        select.appendChild(all);
+        objects.forEach(function (o, i) {
+            var opt = document.createElement("option");
+            opt.value = String(i);
+            opt.textContent = o.name + " · " + (o.idxCount / 3) + " tam giác";
+            select.appendChild(opt);
+        });
+        select.value = "-1";
+    }
+    function useObject(which) {
+        if (!state.fullModel) return;
+        state.newModel = which < 0 ? state.fullModel : core.subModel(state.fullModel, which);
+        el["orient-controls"].hidden = false; el["fit-controls"].hidden = false;
+        state.anglesNew.x = 0.5; state.anglesNew.y = 0.6;
+        computeAutoOrient();
+        refreshNewPreview();
     }
     function isIdent(m) { for (var i = 0; i < 9; i++) if (Math.abs(m[i] - [1, 0, 0, 0, 1, 0, 0, 0, 1][i]) > 1e-9) return false; return true; }
     function computeAutoOrient() {
@@ -230,13 +272,19 @@
         el["info-new"].textContent = m.pos.length + " đỉnh · " + (m.idx.length / 3) + " tam giác" + (nParts > 1 ? " · " + nParts + " part" : "");
         drawMesh(el["viewer-new"], modelTriangles(m), state.anglesNew);
         el["model-warning"].hidden = true;
-        if (state.newModel.pos.length > 65535) {
-            el["model-warning"].innerHTML = "⚠ " + state.newModel.pos.length + " đỉnh > 65535 (index 16-bit) — không thay được.";
-            el["model-warning"].hidden = false;
+        var sel = (state.selected >= 0 && state.analysis) ? state.analysis.meshes[state.selected] : null;
+        var notes = [];
+        if (state.newModel.pos.length > maxVerts()) {
+            notes.push("⚠ " + state.newModel.pos.length + " đỉnh > " + maxVerts() + " (index 16-bit) — không thay được.");
         } else if (subs > 1 && nParts !== subs) {
             // Mesh cũ đa-material nhưng model mới không cùng số part → fallback dồn submesh 0.
-            el["model-warning"].innerHTML = "⚠ Mesh cũ có " + subs + " submesh (" + subs + " material). Model mới có " + nParts +
-                " part → sẽ dồn toàn bộ vào material đầu, " + (subs - 1) + " material còn lại để trống. Nên export model có " + subs + " material để khớp.";
+            notes.push("⚠ Mesh cũ có " + subs + " submesh (" + subs + " material). Model mới có " + nParts +
+                " part → sẽ dồn toàn bộ vào material đầu, " + (subs - 1) + " material còn lại để trống. Nên export model có " + subs + " material để khớp.");
+        }
+        if (sel && sel.skinned) notes.push("Mesh cũ có skin (gắn xương): mỗi đỉnh mới lấy trọng số xương của đỉnh cũ gần nhất — nên khớp kích thước và hướng với mesh cũ để chuyển động tự nhiên.");
+        if (sel && sel.blendShapes) notes.push("Mesh cũ có " + sel.blendShapes + " blend shape — model mới không mang theo được, chúng sẽ bị bỏ.");
+        if (notes.length) {
+            el["model-warning"].textContent = notes.join("\n");
             el["model-warning"].hidden = false;
         }
         if (el["fit-size"].checked && eff.scale) {
@@ -260,27 +308,33 @@
 
     // ───────────────────────── apply → đẩy HTML về converter ─────────────────────────
     function updateApplyState() {
-        var hasMeshChange = !!state.newModel && state.newModel.pos.length <= 65535;
+        var hasMeshChange = !!state.newModel && state.newModel.pos.length <= maxVerts();
         el["apply-button"].disabled = !hasMeshChange;
     }
     function applyEdit() {
-        var analysis = state.analysis, changes = [];
+        var analysis = state.analysis, changes = [], backend = state.backend;
         try {
             var eff = getEffectiveModel();
-            if (eff && eff.model.pos.length <= 65535) {
-                var mm = core.applyMeshReplacement(analysis, state.selected, eff.model);
+            if (eff && eff.model.pos.length <= maxVerts()) {
+                var mm = backend.applyMeshReplacement(analysis, state.selected, eff.model);
                 analysis.meshes[state.selected]._edited = true;
-                changes.push("mesh #" + state.selected + (mm.submeshes > 1 ? " (" + mm.submeshes + " submesh" + (mm.replaceMode !== "1-1" ? ", fallback " + mm.replaceMode : "") + ")" : ""));
+                changes.push("mesh #" + state.selected + (mm.submeshes > 1 ? " (" + mm.submeshes + " submesh" + (mm.replaceMode !== "1-1" ? ", fallback " + mm.replaceMode : "") + ")" : "") +
+                    (mm.notes && mm.notes.length ? " — " + mm.notes.join(", ") : ""));
             }
             if (!changes.length) return;
-            var out = core.serialize(analysis);
+            var out = backend.serialize(analysis);
             el["apply-note"].className = "save-note";
             el["apply-note"].textContent = "Đã áp dụng " + changes.join(" + ") + " vào playable (" + (out.length / 1048576).toFixed(2) + " MB). Convert & đóng .zip sẽ dùng bản mới. Có thể thay tiếp mesh khác.";
             el["apply-note"].hidden = false;
             // preview old = mesh mới, reset model mới, render lại grid (cho phép thay tiếp)
             drawMesh(el["viewer-old"], meshTriangles(analysis.meshes[state.selected].geometry), state.anglesOld);
-            state.oldBounds = trisBounds(meshTriangles(analysis.meshes[state.selected].geometry));
-            state.newModel = null; el["info-new"].textContent = "chưa có";
+            el["info-old"].textContent = meshInfo(analysis.meshes[state.selected]);
+            var newGeo = analysis.meshes[state.selected].geometry;
+            state.oldBounds = trisBounds(meshTriangles(newGeo));
+            state.oldPos = []; newGeo.bundles.forEach(function (b) { b.pos.forEach(function (p) { state.oldPos.push(p); }); });
+            state.oldUvBox = uvBoxOf(newGeo);
+            state.newModel = null; state.fullModel = null; el["info-new"].textContent = "chưa có";
+            el["object-controls"].hidden = true;
             el["fit-controls"].hidden = true; el["fit-info"].textContent = "";
             el["orient-controls"].hidden = true; el["orient-info"].textContent = "";
             state.modelRot = [1, 0, 0, 0, 1, 0, 0, 0, 1]; state._autoAligned = false;
@@ -306,6 +360,7 @@
     wireDrop(el["model-drop"], el["model-input"], function (f) { if (state.selected >= 0) loadNewModel(f); });
     el["deselect"].addEventListener("click", function () { state.selected = -1; showReplaceEmpty(); renderMeshGrid(); });
     el["mesh-filter"].addEventListener("input", function () { if (state.analysis) renderMeshGrid(); });
+    el["model-object"].addEventListener("change", function () { useObject(+el["model-object"].value); });
     el["apply-button"].addEventListener("click", applyEdit);
     el["fit-size"].addEventListener("change", function () { if (state.newModel) refreshNewPreview(); });
     el["fit-stretch"].addEventListener("change", function () { if (state.newModel) refreshNewPreview(); });
@@ -320,18 +375,33 @@
     attachDrag(el["viewer-new"], state.anglesNew, function () { var e = getEffectiveModel(); return e ? modelTriangles(e.model) : null; });
 
     // ───────────────────────── interface cho converter ─────────────────────────
-    // Không có mesh (hoặc không phải playable Cocos) -> hiện note, ẩn nội dung.
+    // Không có mesh (hoặc không phải playable Cocos / Luna) -> hiện note, ẩn nội dung.
     function showMeshEmpty() {
-        state.analysis = null; state.selected = -1; state.newModel = null;
+        state.analysis = null; state.selected = -1; state.newModel = null; state.fullModel = null;
         state.selectedTexKey = null; state.newTexDataUri = null;
         if (el["mesh-body"]) el["mesh-body"].hidden = true;
         if (el["mesh-empty"]) el["mesh-empty"].hidden = false;
     }
+    // Thử lần lượt các backend, lấy cái đầu tiên đọc ra được mesh.
+    function analyzeAny(html) {
+        var backends = [core];
+        if (window.LunaCore && window.LunaCore.meshBackend) backends.push(window.LunaCore.meshBackend);
+        for (var i = 0; i < backends.length; i++) {
+            try {
+                var a = backends[i].analyzePlayable(html);
+                if (a && a.meshes && a.meshes.length) return { backend: backends[i], analysis: a };
+            } catch (err) { }
+        }
+        return null;
+    }
     function load(html, name) {
-        var analysis;
-        try { analysis = core.analyzePlayable(html); }
-        catch (err) { showMeshEmpty(); return false; }
-        if (!analysis || !analysis.meshes || !analysis.meshes.length) { showMeshEmpty(); return false; }
+        var found = analyzeAny(html);
+        if (!found) { showMeshEmpty(); return false; }
+        var analysis = found.analysis;
+        state.backend = found.backend;
+        if (el["model-drop-hint"]) el["model-drop-hint"].textContent = found.backend === core
+            ? "Giữ format position/normal/uv0 · < 65536 đỉnh"
+            : "Luna/Unity: tự đổi hệ trục tay trái, giữ đủ stream của mesh cũ (normal, tangent, skin, màu)";
         state.analysis = analysis; state.fileName = name || ""; state.selected = -1;
         state.newModel = null; state.selectedTexKey = null; state.newTexDataUri = null;
         el["mesh-empty"].hidden = true;

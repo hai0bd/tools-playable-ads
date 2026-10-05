@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="dark">
+    <title>Build Recover</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header class="topbar">
+        <div class="brand-mark">BR</div>
+        <div>
+            <h1>Build Recover</h1>
+            <p>Dựng lại project Cocos Creator 3.x hoặc Unity (playable Luna) từ bản build</p>
+        </div>
+        <div class="local-badge"><span></span> Local only</div>
+    </header>
+
+    <main class="shell">
+        <div class="workspace">
+            <div class="left-column">
+                <!-- ĐẦU VÀO -->
+                <section class="card">
+                    <div class="section-heading">
+                        <div><span class="eyebrow">01 · ĐẦU VÀO</span><h2>Thêm bản build</h2></div>
+                    </div>
+                    <label class="drop-zone" id="drop-zone" for="file-input">
+                        <input id="file-input" type="file" accept=".html,.htm,.zip" multiple hidden>
+                        <span class="upload-icon">⇧</span>
+                        <strong>Kéo file build hoặc thư mục vào đây</strong>
+                        <span>Cocos: .html playable · .zip · thư mục web-mobile — Unity: .html playable Luna</span>
+                        <small>File được xử lý hoàn toàn trên máy của bạn</small>
+                    </label>
+                    <div class="button-row">
+                        <button class="secondary-button" type="button" id="pick-folder">Chọn thư mục build…</button>
+                        <button class="secondary-button" type="button" id="scan-folder">Quét thư mục…</button>
+                    </div>
+                    <p class="hint">Quét thư mục: tìm mọi bản build bên trong (kể cả ổ NAS), gom các bản khác kênh của cùng một phiên bản và chọn sẵn một bản mỗi phiên bản.</p>
+                    <input id="folder-input" type="file" webkitdirectory hidden>
+                </section>
+
+                <!-- KẾT QUẢ -->
+                <section class="card">
+                    <div class="section-heading">
+                        <div><span class="eyebrow">02 · KẾT QUẢ</span><h2>Lưu project vào</h2></div>
+                    </div>
+                    <div class="out-target" id="out-target">
+                        <div class="file-icon" id="out-icon">ZIP</div>
+                        <div class="file-copy">
+                            <strong id="out-name">Tải về dạng .zip</strong>
+                            <span id="out-detail">Mỗi project một file .zip — bấm "Chọn thư mục…" để ghi thẳng ra đĩa</span>
+                        </div>
+                    </div>
+                    <div class="notice warning" id="out-warning" hidden></div>
+                    <div class="button-row">
+                        <button class="secondary-button" type="button" id="pick-out">Chọn thư mục…</button>
+                        <button class="secondary-button" type="button" id="grant-out" hidden>Cấp quyền ghi</button>
+                        <button class="secondary-button" type="button" id="use-zip" hidden>Tải về .zip</button>
+                    </div>
+                    <p class="hint">Mỗi bản build thành một thư mục project riêng; trùng tên thì thêm _2, _3… — không bao giờ ghi đè.</p>
+                </section>
+
+                <!-- TUỲ CHỌN -->
+                <section class="card">
+                    <div class="section-heading">
+                        <div><span class="eyebrow">03 · TUỲ CHỌN</span><h2>Cài đặt</h2></div>
+                    </div>
+                    <label class="setting">
+                        <span><strong>Chạy song song</strong><small>Số bản build xử lý cùng lúc (mỗi cái một luồng riêng)</small></span>
+                        <input type="number" id="concurrency" min="1" max="8" step="1">
+                    </label>
+                    <label class="setting">
+                        <span><strong>Bỏ qua dịch ngược script</strong><small>Nhanh hơn khi chỉ cần asset, scene, prefab</small></span>
+                        <input type="checkbox" id="no-scripts">
+                    </label>
+                    <div class="setting">
+                        <span><strong>Project tham chiếu</strong><small>Script .ts gốc (cùng uuid) được dùng thay cho bản dịch ngược</small></span>
+                        <button class="secondary-button" type="button" id="pick-ref">Chọn project…</button>
+                    </div>
+                    <div class="ref-list" id="ref-list"></div>
+                    <input id="ref-input" type="file" webkitdirectory hidden>
+                </section>
+            </div>
+
+            <!-- VIỆC -->
+            <section class="card jobs-card">
+                <div class="section-heading">
+                    <div><span class="eyebrow">VIỆC</span><h2>Danh sách khôi phục</h2></div>
+                    <div class="heading-tools">
+                        <div class="counters" id="counters"></div>
+                        <button class="text-button" type="button" id="clear-done" hidden>Xoá việc đã xong</button>
+                    </div>
+                </div>
+                <div class="notice warning" id="jobs-notice" hidden></div>
+                <div class="jobs" id="jobs"></div>
+                <div class="empty-state" id="empty">
+                    <div class="empty-visual"><span></span><span></span><span></span></div>
+                    <h3>Chưa có việc nào</h3>
+                    <p>Thả file build vào ô bên trái. Mỗi bản build chạy trong một luồng riêng, thêm việc lúc nào cũng được.</p>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <dialog class="modal" id="scan-dialog">
+        <div class="modal-head">
+            <div><span class="eyebrow">QUÉT THƯ MỤC</span><h2 id="scan-title">Đang quét…</h2></div>
+            <button class="text-button" type="button" data-close>Đóng</button>
+        </div>
+        <div class="scan-status" id="scan-status"></div>
+        <div class="scan-tools">
+            <input type="search" id="scan-filter" placeholder="Lọc theo tên hoặc đường dẫn…">
+            <button class="text-button" type="button" id="scan-all">Chọn tất cả</button>
+            <button class="text-button" type="button" id="scan-none">Bỏ chọn</button>
+        </div>
+        <div class="scan-list" id="scan-list"></div>
+        <div class="modal-foot">
+            <button class="primary-button" type="button" id="scan-add" disabled><span>Thêm việc</span><span class="arrow">→</span></button>
+        </div>
+    </dialog>
+
+    <dialog class="modal wide" id="report-dialog">
+        <div class="modal-head">
+            <div><span class="eyebrow">BÁO CÁO</span><h2 id="report-title"></h2></div>
+            <div class="modal-actions">
+                <button class="secondary-button" type="button" id="report-download">Tải RECOVERY_REPORT.md</button>
+                <button class="text-button" type="button" data-close>Đóng</button>
+            </div>
+        </div>
+        <div class="report-body" id="report-body"></div>
+    </dialog>
+
+    <script src="dist/recover-core.js"></script>
+    <script src="worker.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

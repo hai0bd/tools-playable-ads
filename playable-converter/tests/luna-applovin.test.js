@@ -141,3 +141,33 @@ unityContext.Luna.Unity.Playable.InstallFullGame();
 assert.strictEqual(openedUrl, "https://example.com/android");
 
 console.log("luna AppLovin/Google/Unity tests passed");
+
+// PlProtocol.js (play.rayjump.com/hyplug) is Mintegral's serving-time iframe bridge. In a flat file it
+// runs in "inner" mode and replaces window.gameReady/install/gameEnd with postMessage-to-parent stubs.
+// Dropped for EVERY target, Mintegral included: the Mindworks review tool runs the game in its own
+// page (preview_util.js, no MW_PLFRAME), so the stub swallowed gameReady and the test hung on its
+// black loading layer (measured with the real preview_util.js).
+var withBridge = '<!doctype html><html><body><script src="https://play.rayjump.com/hyplug/PlProtocol.js"></script><script>window.Luna = Luna;</script></body></html>';
+["applovin", "unity", "google", "pangle", "mintegral"].forEach(function (target) {
+    var converted = core.convert(withBridge, "luna", target, {});
+    assert.strictEqual(converted.html.indexOf("PlProtocol.js\"></script>"), -1, "Mintegral bridge must be dropped for " + target);
+    assert.ok(converted.html.indexOf("removed Mintegral serving layer: PlProtocol.js") >= 0, "removal must leave a trace for " + target);
+    assert.strictEqual(converted.html.indexOf("rayjump.com"), -1, "the trace must not carry the URL (Mindworks scans comments for outer links)");
+    assert.ok(/PlProtocol\.js/.test(converted.notes.join(" ")), "the UI note names what was removed for " + target);
+});
+
+// The mraid.js tag is a Unity-only convention (see the channel table in bingo-core.js); it is also
+// how detectBingoNetwork tells AppLovin from Unity, so it must never be added for other targets.
+var MRAID_TAG_RE = /<script\b[^>]*\ssrc\s*=\s*["']mraid\.js["']/;
+["applovin", "unity", "mintegral", "google", "pangle"].forEach(function (target) {
+    var html = core.convert(source, "luna", target, {}).html;
+    assert.strictEqual(MRAID_TAG_RE.test(html), target === "unity", target + ": mraid.js tag");
+});
+
+// removeForeignNetworkSdks must match a real src attribute only: "\b" also matches data-src="…"
+// because the hyphen is a word boundary, so an already-inlined tag would be mistaken for a remote one.
+var dataSrc = '<!doctype html><html><body><script data-src="https://cdn.example.com/pangle-sdk.js"></script><script>window.Luna = Luna;</script></body></html>';
+var keptDataSrc = core.convert(dataSrc, "luna", "applovin", {}).html;
+assert.ok(keptDataSrc.indexOf('data-src="https://cdn.example.com/pangle-sdk.js"') >= 0, "data-src must not be treated as a remote SDK tag");
+
+console.log("luna PlProtocol bridge + mraid tag tests passed");

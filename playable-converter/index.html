@@ -43,6 +43,14 @@
                 <button class="text-button" id="clear-file" hidden>Xóa file</button>
             </div>
             <div class="notice warning" id="mode-warning" hidden></div>
+            <div class="notice remote" id="remote-notice" hidden>
+                <div class="remote-copy">
+                    <strong id="remote-title"></strong>
+                    <span id="remote-detail"></span>
+                </div>
+                <button class="secondary-button" id="inline-remote" type="button">Nhúng vào file</button>
+                <button class="secondary-button" id="use-inner-doc" type="button" hidden>Dùng tài liệu trong iframe</button>
+            </div>
         </section>
 
         <!-- STEP TABS -->
@@ -77,7 +85,7 @@
             <div class="empty-state" id="mesh-empty" hidden>
                 <div class="empty-visual"><span></span><span></span><span></span></div>
                 <h3>Không có mesh 3D</h3>
-                <p>Playable này không có mesh 3D để thay (chỉ áp dụng cho Cocos 2.4.x có <code>__res</code>).</p>
+                <p>Playable này không có mesh 3D để thay (hỗ trợ Cocos 2.4.x có <code>__res</code> và Luna / Unity).</p>
             </div>
 
             <div class="mesh-body" id="mesh-body" hidden>
@@ -87,7 +95,7 @@
                             <span class="eyebrow">MESH 3D</span>
                             <h2>Chọn mesh để thay</h2>
                         </div>
-                        <input class="mesh-filter" id="mesh-filter" type="search" placeholder="Lọc #index / uuid…">
+                        <input class="mesh-filter" id="mesh-filter" type="search" placeholder="Lọc #index / tên / uuid…">
                     </div>
                     <div class="mesh-grid" id="mesh-grid"></div>
                 </div>
@@ -124,11 +132,17 @@
                         <small class="hint">Kéo chuột trên khung để xoay preview.</small>
 
                         <label class="mesh-drop" id="model-drop" for="model-input">
-                            <input id="model-input" type="file" accept=".glb,.obj" hidden>
-                            <strong>Thả model mới (.glb / .obj)</strong>
-                            <small>Giữ format position/normal/uv0 · &lt; 65536 đỉnh</small>
+                            <input id="model-input" type="file" accept=".glb,.obj,.fbx" hidden>
+                            <strong>Thả model mới (.fbx / .glb / .obj)</strong>
+                            <small id="model-drop-hint">Giữ format position/normal/uv0 · &lt; 65536 đỉnh</small>
                         </label>
                         <div class="notice warning" id="model-warning" hidden></div>
+
+                        <div class="fit-controls" id="object-controls" hidden>
+                            <label class="fit-option object-pick"><span>Object trong file:</span>
+                                <select id="model-object"></select>
+                            </label>
+                        </div>
 
                         <div class="fit-controls" id="orient-controls" hidden>
                             <label class="fit-option"><input type="checkbox" id="auto-orient" checked> <span>Tự xoay khớp hướng mesh cũ (đồng xu/đĩa/vật dẹt)</span></label>
@@ -251,7 +265,7 @@
                             <small>ExitApi</small>
                         </label>
                         <label class="network-option pangle">
-                            <input type="checkbox" name="target" value="pangle" data-builds="super-html" checked>
+                            <input type="checkbox" name="target" value="pangle" data-builds="super-html,bingo,threejs" checked>
                             <span class="checkmark">✓</span>
                             <strong>Pangle</strong>
                             <small>openAppStore</small>
@@ -265,7 +279,11 @@
                             <option value="cocos-old">Cocos build cũ — clickTag · openAdUrl</option>
                             <option value="luna">Luna — luna events · Bridge</option>
                             <option value="super-html">Super HTML — __res · __zip</option>
+                            <option value="bingo">Bingo — PlayableSDK · __zip</option>
                             <option value="setup-config">setupConfig — added_api · openStorePage</option>
+                            <option value="threejs">Three.js AVK — playableSource · PROJECT.DAT</option>
+                            <option value="playsmart">PlaySmart / QICI — ps.* · qici.config</option>
+                            <option value="mindworks">MindWorks / Mintegral — __adapter_zip__ · MW_CONFIG</option>
                         </select>
                     </label>
 
@@ -313,11 +331,20 @@
         <span id="version">v1.2</span>
     </footer>
 
+    <script src="fbx-core.js"></script>
     <script src="mesh-core.js"></script>
     <script src="script-core.js"></script>
+    <script src="inline-core.js"></script>
     <script src="converter-core.js"></script>
+    <script src="bingo-core.js"></script>
+    <script src="playsmart-core.js"></script>
+    <script src="mindworks-core.js"></script>
+    <script src="brotli-core.js"></script>
+    <script src="luna-core.js"></script>
     <script src="mesh-panel.js"></script>
     <script src="script-panel.js"></script>
+    <script src="bingo-panel.js"></script>
+    <script src="luna-panel.js"></script>
     <script src="app.js"></script>
 </body>
 </html>

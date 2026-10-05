@@ -24,11 +24,24 @@
     function detectBuild(html) {
         if (/\bspNetwork\s*=/.test(html) && /\bspVars\s*=/.test(html)) return "saygames";
         if (/\bopenAdUrl\s*=\s*function/.test(html) && /window\._CCSettings|var\s+adNetwork\s*=/.test(html)) return "cocos-old";
+        if (isThreejsAvk(html)) return "threejs";
+        // Bingo (app đóng gói riêng): có hàm CTA bingoPlayableApiDemo, hoặc khai báo __zipEncoding mà
+        // không có API super_html. Rule chuyển đổi nằm ở bingo-core.js (registerBuild).
+        if (/\bbingoPlayableApiDemo\b/.test(html) || (/window\.__zipEncoding\s*=/.test(html) && !/super[-_ ]?html/i.test(html))) return "bingo";
         if (/super[-_ ]?html/i.test(html)) return "super-html";
         // Chỉ nhận Luna qua dấu hiệu do trình build sinh ra. Chuỗi "luna" trần
         // hay khớp ngẫu nhiên bên trong khối base64 của asset.
         if (/Bridge\.(?:ready|startup)|LunaCompilerV|Luna\.Unity\.(?:Playable|LifeCycle|Analytics)|LunaUnity\.Objects/.test(html)) return "luna";
         if (/window\.setupConfig\s*=/.test(html) && /added_api\s*:/.test(html)) return "setup-config";
+        // PlaySmart / QICI (creative Mintegral–Zingfront): runtime namespace ps.* + config của engine
+        // QICI. Bắt cả bản còn trỏ CDN lẫn bản đã nhúng, vì hai dấu hiệu này nằm ở file game.
+        // Rule chuyển đổi ở playsmart-core.js (registerBuild).
+        if (/\bqici\s*\.\s*config\s*=/.test(html) && /\bps\.(?:mainState|checkLaunch|Behaviour)\b/.test(html)) return "playsmart";
+        // MindWorks / Mintegral offline package: build Cocos 2.4 nén thành JSON map trong
+        // __adapter_zip__. Luật cocos-old không bao giờ khớp được creative này vì dấu hiệu của nó
+        // (_CCSettings, openAdUrl) nằm TRONG payload nén, mọi regex chạy trên HTML đều mù.
+        // Rule chuyển đổi ở mindworks-core.js (registerBuild).
+        if (/window\s*\.\s*__adapter_zip__\s*\+?=/.test(html)) return "mindworks";
         return "unknown";
     }
 
@@ -53,7 +66,55 @@
         return "unknown";
     }
 
+    // File do Bingo xuất: tên file theo mẫu {date}_{Channel}_{name} là nguồn đáng tin nhất; không có
+    // thì đoán từ hàm CTA bingoPlayableApiDemo (AppLovin và Unity cùng mraid.open, chỉ khác Unity có
+    // thẻ mraid.js). Các rule chung phía dưới sẽ đoán nhầm AppLovin thành Unity vì thấy mraid.open.
+    function detectBingoNetwork(html, filename) {
+        var fromName = networkFromFilename(filename);
+        if (fromName !== "unknown") return fromName;
+        var name = String(filename || "").toLowerCase();
+        if (/ironsource|levelplay/.test(name)) return "ironsource";
+        if (/facebook/.test(name)) return "facebook";
+        if (/vungle|liftoff/.test(name)) return "vungle";
+        if (/moloco/.test(name)) return "moloco";
+        if (/chartboost/.test(name)) return "chartboost";
+        var demo = (html.match(/function bingoPlayableApiDemo\(\)\s*\{[\s\S]{0,3000}?<\/script>/) || [""])[0];
+        if (/ExitApi/.test(demo)) return "google";
+        if (/window\.install|\binstall\s*\(/.test(demo)) return "mintegral";
+        if (/FbPlayableAd/.test(demo)) return "facebook";
+        if (/\bdapi\./.test(demo)) return "ironsource";
+        if (/openAppStore/.test(demo)) return "pangle";
+        if (/postMessage\(\s*['"]download/.test(demo)) return "vungle";
+        if (/mraid\.open/.test(demo)) return /<script\b[^>]*\bsrc\s*=\s*["']mraid\.js["']/i.test(html) ? "unity" : "applovin";
+        return "unknown";
+    }
+
+    // Three.js template AVK (bundle Parcel 1 + three.js): entry chọn lớp API mạng lúc window.load theo biến
+    // playableSource; mỗi lớp API gắn thuộc tính avk_play_class. Rule chuyển đổi ở convertThreejs.
+    function isThreejsAvk(html) {
+        return /\bvar\s+playableSource\s*=/.test(html) && /\bavk_play_class\b/.test(html);
+    }
+
+    // Giá trị playableSource cho từng mạng đầu ra, theo đúng các bản studio đang chạy ("mr" = MRAID chung
+    // cho AppLovin). Template không có nhánh Pangle, và bản cũ không có nhánh "gg": giá trị lạ rơi xuống dò
+    // TJ_API → dapi → mraid → BrowserClientAPI, adapter lo phần CTA.
+    var THREEJS_SOURCE = { applovin: "mr", unity: "un", mintegral: "mn", google: "gg", pangle: "pg" };
+    var THREEJS_SOURCE_NETWORK = { un: "unity", mn: "mintegral", gg: "google", pg: "pangle", fb: "facebook", vu: "vungle", lf: "vungle", ml: "moloco", imr: "ironsource" };
+
+    function detectThreejsNetwork(html, filename) {
+        var match = html.match(/\bvar\s+playableSource\s*=\s*["']([^"']*)["']/);
+        var source = match ? match[1].toLowerCase() : "";
+        if (THREEJS_SOURCE_NETWORK[source]) return THREEJS_SOURCE_NETWORK[source];
+        var fromName = networkFromFilename(filename);
+        if (source === "mr") return fromName !== "unknown" ? fromName : "applovin";
+        return fromName;
+    }
+
     function detectSourceNetwork(html, filename) {
+        if (/\bbingoPlayableApiDemo\b/.test(html)) return detectBingoNetwork(html, filename);
+        // Build AVK chứa lớp MintegralClientAPI (window.install && window.install()) ở mọi mạng, nên phải
+        // đọc playableSource trước khi các rule chung phía dưới đoán nhầm thành Mintegral.
+        if (isThreejsAvk(html)) return detectThreejsNetwork(html, filename);
         // Nội dung file luôn đáng tin hơn tên file: tên do người đặt, còn các
         // dấu hiệu dưới đây do chính trình build của network sinh ra.
         var match = html.match(/\bspNetwork\s*=\s*['"]([^'"]+)['"]/);
@@ -93,9 +154,66 @@
             hasGameReady: /window\.gameReady/.test(html),
             hasGameEnd: /window\.gameEnd/.test(html),
             superHtmlVersion: build === "super-html" ? detectSuperHtmlVersion(html) : "unknown",
+            zipEncoding: build === "super-html" || build === "bingo" ? detectZipEncoding(html) : "unknown",
+            avkProduct: build === "threejs" ? readAvkProduct(html) : "",
             stageQueueLength: stageQueue.length,
             gameManagers: gameManagers
         };
+    }
+
+    // Tên + phiên bản template trong PROJECT.DAT = new function () { this.product = "AVK_Maze", this.version = "0.1.0", … }.
+    function readAvkProduct(html) {
+        var at = html.search(/PROJECT\.DAT\s*=\s*new\s+function/);
+        if (at < 0) return "";
+        var head = html.slice(at, at + 2000);
+        var product = head.match(/\bthis\.product\s*=\s*["']([^"']*)["']/);
+        var version = head.match(/\bthis\.version\s*=\s*["']([^"']*)["']/);
+        return product ? product[1] + (version ? " " + version[1] : "") : "";
+    }
+
+    var HTML_ENTITIES = { lt: "<", gt: ">", amp: "&", quot: '"', "#39": "'", apos: "'" };
+
+    function unescapeHtmlText(text) {
+        return String(text).replace(/&(lt|gt|amp|quot|apos|#39);/g, function (all, name) {
+            return HTML_ENTITIES[name] !== undefined ? HTML_ENTITIES[name] : all;
+        });
+    }
+
+    function escapeHtmlAttribute(text) {
+        return String(text).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    }
+
+    /* Luna (Luna Playground): ảnh KHÔNG nằm ở data: URI mà ở <img data-mime="image/png"
+     * data-src122="…">, nên mọi bộ thu khác đều không thấy — creative Paper Doll có 115 ảnh, 2 MB,
+     * mà bảng asset chỉ hiện 6.
+     *
+     * Payload là PNG/JPEG THÔ mã base122 chuẩn — khác sound/json/blob của Luna (những thứ đó còn
+     * nén Brotli, do luna-core.js đọc). Nằm trong thuộc tính HTML nên '<' '>' '&' đã bị escape:
+     * phải gỡ trước khi giải, và escape lại khi ghi (xem replaceEmbeddedData).
+     *
+     * Bản đi qua tool spy/đổi mạng dùng cặp thuộc tính khác: data-b122 + data-b122m (cùng bảng
+     * base122 chuẩn, mime mặc định image/jpeg theo bộ giải đi kèm file).
+     */
+    function collectLunaImages(html, matches) {
+        var regex = /<img\b[^>]*\sdata-(src122|b122)\s*=\s*"([^"]*)"[^>]*>/gi;
+        var match;
+        while ((match = regex.exec(html))) {
+            var tag = match[0], marker = "data-" + match[1] + '="';
+            var start = match.index + tag.indexOf(marker) + marker.length;
+            var mimeAttr = match[1] === "b122" ? /\sdata-b122m\s*=\s*"([^"]*)"/i : /\sdata-mime\s*=\s*"([^"]*)"/i;
+            addEmbeddedMatch(matches, {
+                encoding: "base122",
+                payload: unescapeHtmlText(match[2]),
+                start: start,
+                end: start + match[2].length,
+                context: (tag.match(/\sid\s*=\s*"([^"]*)"/i) || [])[1] || "luna image",
+                source: "luna-img",
+                mediaType: (tag.match(mimeAttr) || [])[1] || (match[1] === "b122" ? "image/jpeg" : "image/png"),
+                quote: '"',
+                htmlEscaped: true,
+                base122Standard: true
+            });
+        }
     }
 
     function extractEmbeddedData(html) {
@@ -107,6 +225,8 @@
         collectSuperHtmlZipPayloads(html, matches);
         collectNamedPayloads(html, matches);
         collectLikelyBase64Properties(html, matches);
+        collectAvkDataAssets(html, matches);
+        collectLunaImages(html, matches);
 
         matches.sort(function (a, b) { return a.start - b.start || b.end - a.end; });
         var filtered = matches.filter(function (item, index) {
@@ -231,6 +351,11 @@
         }
     }
 
+    function detectZipEncoding(html) {
+        var match = /\bwindow\s*\.\s*(?:__zip|zip)\s*=\s*["']/.exec(html);
+        return match ? detectSuperHtmlZipEncoding(html, match.index) : "unknown";
+    }
+
     function detectSuperHtmlZipEncoding(html, zipIndex) {
         var scriptStart = html.lastIndexOf("<script", zipIndex);
         var scriptEnd = html.indexOf("</script>", zipIndex);
@@ -262,6 +387,55 @@
         }
     }
 
+    // Template Three.js AVK gán asset thành chuỗi base64 trần (không có data URI):
+    //   PROJECT.DAT.pictures.shadow = "…"  ·  PROJECT.DAT.textures["Zombi [Albedo]"] = "…"  ·  PROJECT.DAT.other["gun.mp3"] = "…"
+    // và PROJECT.DAT.mtl = "…" (base64 của file .mtl). Bỏ PROJECT.DAT.obj: chuỗi đó nén LZString
+    // (game gọi decompressFromBase64) nên không phải base64 của file; thay bằng base64 thường là hỏng model.
+    function collectAvkDataAssets(html, matches) {
+        var regex = /\bPROJECT\.DAT\.([A-Za-z_$][\w$]*)(?:\.([A-Za-z_$][\w$]*)|\[\s*(["'])([^"'\\\r\n]{1,160})\3\s*\])?\s*=\s*(["'])([A-Za-z0-9+/]{16,}={0,2})\5/g;
+        var extensions = { "image/png": "png", "image/jpeg": "jpg", "image/gif": "gif", "image/webp": "webp", "audio/mpeg": "mp3", "audio/ogg": "ogg", "audio/wav": "wav" };
+        var match, modelName = null;
+        while ((match = regex.exec(html))) {
+            var group = match[1], key = match[2] || match[4], payload = match[6];
+            if (!key && group !== "mtl") continue;
+            var mediaType = key ? sniffBase64MediaType(payload) : "";
+            var name = key || readAvkModelName() + ".mtl";
+            if (key && extensions[mediaType] && !/\.[A-Za-z0-9]{2,5}$/.test(key)) name += "." + extensions[mediaType];
+            var start = match.index + match[0].lastIndexOf(payload);
+            addEmbeddedMatch(matches, {
+                encoding: "base64",
+                payload: payload,
+                start: start,
+                end: start + payload.length,
+                context: group + "/" + name,
+                source: "avk-data",
+                mediaType: mediaType || undefined,
+                quote: match[5]
+            });
+        }
+
+        function readAvkModelName() {
+            if (modelName === null) modelName = (html.match(/\bthis\.obj\s*=\s*["']([\w .-]{1,60})["']/) || [])[1] || "model";
+            return modelName;
+        }
+    }
+
+    // Đoán media type từ vài byte đầu của payload base64 (cho asset không có data URI đi kèm).
+    function sniffBase64MediaType(payload) {
+        var b;
+        try { b = decodeBase64Bytes(String(payload).slice(0, 24)); }
+        catch (error) { return ""; }
+        var head = String.fromCharCode.apply(null, b);
+        if (b[0] === 0x89 && head.slice(1, 4) === "PNG") return "image/png";
+        if (b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return "image/jpeg";
+        if (head.slice(0, 4) === "GIF8") return "image/gif";
+        if (head.slice(0, 4) === "RIFF" && head.slice(8, 12) === "WEBP") return "image/webp";
+        if (head.slice(0, 4) === "RIFF" && head.slice(8, 12) === "WAVE") return "audio/wav";
+        if (head.slice(0, 4) === "OggS") return "audio/ogg";
+        if (head.slice(0, 3) === "ID3" || (b[0] === 0xff && (b[1] & 0xe0) === 0xe0)) return "audio/mpeg";
+        return "";
+    }
+
     function addEmbeddedMatch(matches, item) {
         if (!item.payload) return;
         var duplicate = matches.some(function (existing) {
@@ -277,6 +451,8 @@
         if (item.quote && payload.indexOf(item.quote) >= 0) {
             throw new Error("Payload mới chứa ký tự " + item.quote + " làm hỏng chuỗi JavaScript.");
         }
+        // Payload nằm trong thuộc tính HTML (ảnh Luna) thì phải escape lại đúng như lúc đọc đã gỡ.
+        if (item.htmlEscaped) payload = escapeHtmlAttribute(payload);
         return html.slice(0, item.start) + payload + html.slice(item.end);
     }
 
@@ -360,9 +536,24 @@
         return new Uint8Array(out);
     }
 
-    function encodeBase122Bytes(value) {
+    /* Base122 có HAI biến thể trong thực tế, và chúng KHÔNG đọc được của nhau:
+     *
+     *   chuẩn (6 ký tự né)  : [0, 10, 13, 34, 38, 92]       — Luna dùng bản này
+     *   biến thể repo (7)   : thêm 60 tức '<'               — Bingo / Super HTML / mesh dùng bản này
+     *
+     * Thêm '<' là để payload nằm an toàn trong <script> (chuỗi "</" sẽ đóng thẻ sớm). Nhưng bộ giải
+     * 6 phần tử tra chỉ số 6 ra undefined → dữ liệu hỏng im lặng. Đã đo: mã lại ảnh Luna bằng bảng
+     * 7 phần tử làm playable đứng ở màn loading dù nội dung byte không đổi.
+     *
+     * Vì vậy options.standard = true khi ghi vào nơi mà bộ giải bên kia là bản 6 phần tử
+     * (thuộc tính data-src122 của Luna). Mặc định giữ nguyên hành vi cũ.
+     */
+    var BASE122_SHORT = [0, 10, 13, 34, 38, 92];
+    var BASE122_SHORT_LT = [0, 10, 13, 34, 38, 92, 60];
+
+    function encodeBase122Bytes(value, options) {
         var bytes = value instanceof Uint8Array ? value : new Uint8Array(value);
-        var shortMap = [0, 10, 13, 34, 38, 92, 60];
+        var shortMap = options && options.standard ? BASE122_SHORT : BASE122_SHORT_LT;
         var shortIndexByValue = {};
         for (var s = 0; s < shortMap.length; s++) shortIndexByValue[shortMap[s]] = s;
 
@@ -406,7 +597,7 @@
         if (/^audio\//.test(t) || /\.(mp3|ogg|wav|m4a|aac|flac)$/.test(t)) return "audio";
         if (/^font\//.test(t) || /\.(ttf|otf|woff2?|eot|ttc)$/.test(t)) return "font";
         if (/mesh|model|geometry/.test(t) || /\.(bin|cconb|glb|gltf|fbx|obj|dbbin|skel)$/.test(t)) return "model";
-        if (/^(application\/)?json$/.test(t) || /\.(json|txt|xml|atlas|plist)$/.test(t)) return "data";
+        if (/^(application\/)?json$/.test(t) || /\.(json|txt|xml|atlas|plist|mtl)$/.test(t)) return "data";
         if (/^video\//.test(t)) return "other";
         return "other";
     }
@@ -431,16 +622,34 @@
         return value.slice(0, 36) + "..." + value.slice(-16);
     }
 
+    // Kiểu build đăng ký từ module khác (bingo-core.js đăng ký "bingo"): handler(html, target, options)
+    // → { html, warnings }. Giữ converter-core không phụ thuộc ngược vào module đó.
+    var BUILD_HANDLERS = {};
+    function registerBuild(name, handler) { BUILD_HANDLERS[name] = handler; }
+
+    // notes: việc tool đã tự làm để người dùng biết (không phải cảnh báo) — hiện ở thẻ kết quả.
     function convert(html, build, target, options) {
         options = options || {};
         build = build || detectBuild(html);
         target = normalizeNetwork(target);
         if (!NETWORKS[target]) throw new Error("Mạng đầu ra không được hỗ trợ: " + target);
+        var serving = stripServingLayers(html);
+        var result = convertBuild(serving.html, build, target, options);
+        result.notes = serving.removed.length ? ["Đã gỡ lớp phát hành Mintegral dính theo bản SocialPeta: " + serving.removed.join(", ")] : [];
+        return result;
+    }
+
+    function convertBuild(html, build, target, options) {
         if (build === "saygames") return convertSayGames(html, target, options);
         if (build === "cocos-old") return convertCocosOld(html, target, options);
         if (build === "luna") return convertLuna(html, target, options);
         if (build === "setup-config") return convertSetupConfig(html, target, options);
         if (build === "super-html") return convertSuperHtml(html, target, options);
+        if (build === "threejs") return convertThreejs(html, target, options);
+        if (BUILD_HANDLERS[build]) return BUILD_HANDLERS[build](html, target, options);
+        if (build === "bingo") throw new Error("Cần nạp bingo-core.js để chuyển đổi build Bingo.");
+        if (build === "playsmart") throw new Error("Cần nạp playsmart-core.js để chuyển đổi build PlaySmart.");
+        if (build === "mindworks") throw new Error("Cần nạp mindworks-core.js để chuyển đổi build MindWorks.");
         throw new Error("Chưa có rule chuyển đổi cho kiểu build này.");
     }
 
@@ -456,6 +665,7 @@
                 filename: NETWORKS[target].file,
                 html: converted.html,
                 warnings: converted.warnings.concat(validation.warnings),
+                notes: converted.notes || [],
                 errors: validation.errors,
                 bytes: byteLength(converted.html)
             };
@@ -466,6 +676,8 @@
         var warnings = [];
         var out = removeInjected(html);
         out = removeForeignNetworkSdks(out, target);
+
+        out = setMraidTag(out, target === "unity");
         out = replaceVariable(out, "spNetwork", target);
         out = out.replace(/(_spCampaign\s*=\s*)['"][^'"]*['"]/, "$1\"" + target + "#campaign#creative\"");
         out = replaceStoreUrls(out, options);
@@ -610,11 +822,13 @@
         var warnings = [];
         var out = removeInjected(html);
         out = removeForeignNetworkSdks(out, target);
+
+        out = setMraidTag(out, target === "unity");
         out = replaceVariable(out, "adNetwork", cocosNetworkName(target));
         out = replaceStoreUrls(out, options);
         out = configureGoogleExitApi(out, target);
 
-        var adapterScript = '<script data-playable-converter="cocos-adapter">\n' + buildCocosAdapter(target) + "\n</script>";
+        var adapterScript = '<script data-playable-converter="cocos-adapter">\n' + buildCocosAdapter(target, options) + "\n</script>";
         var adapterRegex = /<script\b[^>]*>[\s\S]*?\bopenAdUrl\s*=\s*function[\s\S]*?<\/script>/i;
         var match = adapterRegex.exec(out);
         if (match) {
@@ -649,7 +863,23 @@
         return { html: out, readyCount: readyCount, endCount: endCount, nativeReady: nativeReady, nativeEnd: nativeEnd };
     }
 
-    function buildCocosAdapter(target) {
+    /* Link CTA phải được GHIM tại đây, không đọc lại biến toàn cục lúc click.
+     * Nút CTA của build Cocos thường không gọi window.openAdUrl trực tiếp: nó gọi method
+     * openAdUrl của component AdsManager trong scene, và method đó làm đúng một việc trước
+     * khi gọi tiếp ra ngoài:
+     *     window.androidLink = this.androidLink;  // giá trị NHÚNG TRONG SCENE
+     *     window.iosLink = this.iosLink; window.defaultLink = this.defaultLink;
+     *     window.openAdUrl ? window.openAdUrl() : window.open();
+     * Link trong scene nằm trong JSON đã base64 hoá trong window.resMap nên replaceStoreUrls()
+     * — vốn chạy regex trên văn bản HTML — không thấy và không thay được. Adapter đọc
+     * androidLink lúc click sẽ nhận link app CŨ của build gốc, dù <head> đã được sửa đúng.
+     * Vì vậy: có URL người dùng nhập thì nhúng thẳng dạng hằng số; không có thì chụp biến
+     * toàn cục NGAY LÚC script này chạy — adapter được chèn liền sau script <head> khai báo
+     * chúng, tức trước khi Cocos nạp scene, nên đó là lúc giá trị còn nguyên. */
+    function buildCocosAdapter(target, options) {
+        options = options || {};
+        var android = options.androidUrl && String(options.androidUrl).trim();
+        var ios = options.iosUrl && String(options.iosUrl).trim();
         var click = targetClickCode(target, "clickTag");
         var analytics = target === "applovin" ? [
             'var sent = {};',
@@ -657,11 +887,20 @@
             'track("LOADING");',
             'window.addEventListener("load", function () { track("LOADED"); track("DISPLAYED"); });'
         ].join("\n    ") : "function track() { }";
+        function pin(url, globalName) {
+            if (url) return JSON.stringify(url);
+            return 'typeof ' + globalName + ' === "string" ? ' + globalName + ' : ""';
+        }
         return [
             '(function () {',
             '    ' + analytics,
+            '    var ctaAndroid = ' + pin(android, "androidLink") + ';',
+            '    var ctaIos = ' + pin(ios, "iosLink") + ';',
+            '    var ctaDefault = ' + pin(android || ios, "defaultLink") + ';',
             '    window.openAdUrl = function () {',
-            '        if (window.cc && cc.sys && cc.sys.os === cc.sys.OS_ANDROID) clickTag = androidLink; else if (window.cc && cc.sys && cc.sys.os === cc.sys.OS_IOS) clickTag = iosLink; else clickTag = defaultLink || androidLink || iosLink;',
+            '        if (window.cc && cc.sys && cc.sys.os === cc.sys.OS_ANDROID) clickTag = ctaAndroid || ctaDefault || ctaIos;',
+            '        else if (window.cc && cc.sys && cc.sys.os === cc.sys.OS_IOS) clickTag = ctaIos || ctaDefault || ctaAndroid;',
+            '        else clickTag = ctaDefault || ctaAndroid || ctaIos;',
             target === "applovin" ? '        track("CTA_CLICKED");' : "",
             '        ' + click,
             '    };',
@@ -710,6 +949,8 @@
         var out = removeInjected(html);
         out = removeLunaMintegralHooks(out, target);
         out = removeForeignNetworkSdks(out, target);
+
+        out = setMraidTag(out, target === "unity");
         out = replaceStoreUrls(out, options);
         out = configureGoogleExitApi(out, target);
         out = insertBeforeClosingBody(out, '<script data-playable-converter="luna-adapter">\n' + buildLunaAdapter(target, options) + "\n</script>");
@@ -795,6 +1036,8 @@
         var warnings = [];
         var out = removeInjected(html);
         out = removeForeignNetworkSdks(out, target);
+
+        out = setMraidTag(out, target === "unity");
         out = replaceSetupConfigNetwork(out, target, warnings);
         out = replaceSetupConfigRedirect(out, options);
         out = replaceStoreUrls(out, options);
@@ -859,6 +1102,8 @@
         var version = detectSuperHtmlVersion(out);
         if (version === "unknown") warnings.push("Không xác định được phiên bản Super HTML (__res/__zip).");
         out = removeForeignNetworkSdks(out, target);
+
+        out = setMraidTag(out, target === "unity");
         out = configureGoogleExitApi(out, target);
         var adapter = buildSuperHtmlAdapter(target, version, options);
         var wrapperRegex = /window\.super_html\s*=\s*\{[\s\S]*?\}\s*;+(?=\s*window\.(?:__res|__zip|zip)\s*=)/;
@@ -949,8 +1194,119 @@
         ]).join("\n");
     }
 
-    function targetClickCode(target, urlExpression) {
-        if (target === "mintegral") return 'if (typeof window.install === "function") window.install(); else if (window.mraid && typeof window.mraid.open === "function") window.mraid.open(' + urlExpression + '); else window.open(' + urlExpression + ', "_blank")';
+    function convertThreejs(html, target, options) {
+        options = options || {};
+        var warnings = [];
+        var out = removeInjected(html);
+        // Bản Google vá tay (window.install = window.download = … → ExitApi) sẽ đè hàm install thật của Mintegral.
+        if (target === "mintegral" && /\bwindow\.install\s*=/.test(out)) warnings.push("File nguồn tự gán window.install (bản vá tay cho Google?); trên Mintegral CTA có thể không gọi được install thật. Nên convert từ bản AppLovin/Unity gốc.");
+        out = removeForeignNetworkSdks(out, target);
+
+        out = setMraidTag(out, target === "applovin" || target === "unity");   // lệ riêng của template AVK
+        out = configureGoogleExitApi(out, target);
+        var sourceRegex = /(\bvar\s+playableSource\s*=\s*)(["'])[^"']*\2/;
+        if (sourceRegex.test(out)) out = out.replace(sourceRegex, "$1$2" + THREEJS_SOURCE[target] + "$2");
+        else warnings.push("Không tìm thấy var playableSource; build vẫn chạy theo mạng cũ.");
+        out = replaceThreejsStoreUrls(out, target, options, warnings);
+        if (!/\bparcelRequire\s*=/.test(out) || !/\bBrowserClientAPI\b/.test(out)) warnings.push("Không thấy bundle Parcel có BrowserClientAPI; adapter CTA có thể không gắn được vào game.");
+        out = insertBeforeClosingBody(out, '<script data-playable-converter="threejs-adapter">\n' + buildThreejsAdapter(target) + "\n</script>");
+        return { html: out, warnings: warnings };
+    }
+
+    /* Thẻ <script src="mraid.js"> trong <head>. File mraid.js do SDK của mạng phục vụ lúc serve,
+     * không nằm trong gói — nên thừa thẻ là Google validator báo thiếu file, còn thiếu thẻ thì
+     * Unity không bơm được MRAID vào.
+     *
+     * Ai cần: theo bảng kênh của bingo-core.js (bản có lý lẽ rõ nhất trong repo) thì CHỈ Unity.
+     * AppLovin tự chèn mraid.js; Mintegral/Pangle không dùng MRAID; Google dùng ExitApi.
+     * Bảng đó còn là luật nhận diện: detectBingoNetwork phân biệt AppLovin với Unity bằng đúng
+     * sự có mặt của thẻ này.
+     *
+     * NGOẠI LỆ build AVK (threejs): template của studio mở <head> bằng thẻ này ở CẢ AppLovin lẫn
+     * Unity, và nhận diện của nó đọc `playableSource` chứ không đọc thẻ — nên giữ nguyên lệ riêng
+     * đó thay vì ép theo bảng chung.
+     */
+    function setMraidTag(html, needed) {
+        var out = html.replace(/\s*<script\b[^>]*\bsrc\s*=\s*["']mraid\.js["'][^>]*>\s*<\/script>/gi, "");
+        if (!needed) return out;
+        var anchor = /<head\b[^>]*>/i.exec(out) || /<html\b[^>]*>/i.exec(out);
+        if (!anchor) return '<script src="mraid.js"></script>\n' + out;
+        var at = anchor.index + anchor[0].length;
+        return out.slice(0, at) + '\n\t<script src="mraid.js"></script>' + out.slice(at);
+    }
+
+    // Link store nằm trong PROJECT.DAT (this.android_url / this.ios_url); CTA chọn link theo isMobile.Android().
+    function replaceThreejsStoreUrls(html, target, options, warnings) {
+        var android = options.androidUrl && String(options.androidUrl).trim();
+        var ios = options.iosUrl && String(options.iosUrl).trim();
+        var out = html;
+        if (android) out = replaceStringAssignment(out, "android_url", android);
+        if (ios) out = replaceStringAssignment(out, "ios_url", ios);
+        // Chỉ AppLovin/Unity truyền link này vào mraid.open(url); Mintegral/Google/Pangle gọi install/ExitApi/openAppStore.
+        var iosUrl = (out.match(/\bios_url\s*=\s*["']([^"']*)["']/) || [])[1] || "";
+        if ((target === "applovin" || target === "unity") && /play\.google\.com/i.test(iosUrl)) {
+            warnings.push("ios_url đang là link Google Play: trên iOS, CTA gọi mraid.open với link này. Nhập iOS URL ở mục Store URL tùy chọn.");
+        }
+        return out;
+    }
+
+    // Adapter chèn sau bundle Parcel, chạy trước window.load: module src/api đã nạp nhưng entry chưa tạo lớp
+    // API nào, nên vá prototype là đủ. Tìm module theo hình dạng (exports có BrowserClientAPI) vì id module
+    // Parcel là hash, đổi theo từng bản build.
+    //  - open: CTA theo mạng đích. Google/Pangle ở template cũ rơi vào BrowserClientAPI có open = alert(url).
+    //  - getSize: MraidClientAPI gọi mraid.getMaxSize(), xem thử trên trình duyệt không có MRAID là lỗi.
+    //  - init (AppLovin/Unity): chờ mraid ready → viewable rồi mới chạy game, quá 2 s thì chạy luôn. Bản gốc
+    //    đọc tham số viewableChange như object {isViewable} trong khi MRAID truyền boolean, nên quảng cáo
+    //    chưa hiện lúc ready thì game không bao giờ chạy.
+    function buildThreejsAdapter(target) {
+        var mraidTarget = target === "applovin" || target === "unity";
+        var lines = ['(function () {'];
+        if (target === "applovin") lines.push(
+            '    var sent = {};',
+            '    function track(name) { if (name !== "CTA_CLICKED" && sent[name]) return; sent[name] = true; if (window.ALPlayableAnalytics && typeof window.ALPlayableAnalytics.trackEvent === "function") window.ALPlayableAnalytics.trackEvent(name); }',
+            '    track("LOADING");',
+            '    window.addEventListener("load", function () { track("LOADED"); });'
+        );
+        else lines.push('    function track() { }');
+        lines.push(
+            '    var cache = window.parcelRequire && window.parcelRequire.cache, api = null;',
+            '    for (var id in cache || {}) { var exported = cache[id] && cache[id].exports; if (exported && typeof exported.BrowserClientAPI === "function") { api = exported; break; } }',
+            '    if (!api) return;',
+            '    function open(url) { track("CTA_CLICKED"); ' + targetClickCode(target, "url") + ' }',
+            '    function windowSize() { return { width: window.innerWidth, height: window.innerHeight }; }'
+        );
+        if (mraidTarget) lines.push(
+            '    function mraidInit(start) {',
+            '        track("LOADED");',
+            '        var self = this, started = false, mraid = window.mraid;',
+            '        function launch() { if (started) return; started = true; self.gameStarted = true; track("DISPLAYED"); start(); }',
+            '        if (!mraid || typeof mraid.getState !== "function") return launch();',
+            '        var safetyTimer = window.setTimeout(launch, 2000);',
+            '        var go = function () { window.clearTimeout(safetyTimer); launch(); };',
+            '        var onViewable = function (viewable) { if (viewable === true || (viewable && viewable.isViewable === true)) go(); };',
+            '        var bind = function () { if (typeof mraid.addEventListener === "function") mraid.addEventListener("viewableChange", onViewable); if (typeof mraid.isViewable !== "function" || mraid.isViewable()) go(); };',
+            '        if (mraid.getState() === "loading" && typeof mraid.addEventListener === "function") mraid.addEventListener("ready", bind); else bind();',
+            '    }'
+        );
+        lines.push(
+            '    Object.keys(api).forEach(function (name) {',
+            '        var proto = typeof api[name] === "function" && api[name].prototype;',
+            '        if (!proto || typeof proto.init !== "function" || typeof proto.open !== "function") return;',
+            '        var getSize = proto.getSize;',
+            '        proto.getSize = function () { try { var size = typeof getSize === "function" && getSize.apply(this, arguments); if (size && size.width > 0 && size.height > 0) return size; } catch (e) { } return windowSize(); };',
+            '        proto.open = open;'
+        );
+        if (mraidTarget) lines.push('        proto.init = mraidInit;');
+        lines.push('    });', '})();');
+        return lines.join("\n");
+    }
+
+    // selfName: tên hàm CTA đang sinh. Adapter nào gán chính hàm đó vào window.install khi SDK vắng mặt
+    // (MindWorks, PlaySmart) thì nhánh Mintegral "window.install()" gọi lại chính nó: đệ quy vô hạn,
+    // bấm CTA là RangeError. Lộ ra khi mở file ngoài môi trường Mintegral — nhất là sau khi đã gỡ gói
+    // offline (stub window.install) của lớp phát hành.
+    function targetClickCode(target, urlExpression, selfName) {
+        if (target === "mintegral") return 'if (typeof window.install === "function"' + (selfName ? ' && window.install !== ' + selfName : '') + ') window.install(); else if (window.mraid && typeof window.mraid.open === "function") window.mraid.open(' + urlExpression + '); else window.open(' + urlExpression + ', "_blank")';
         if (target === "google") return 'if (window.ExitApi && typeof window.ExitApi.exit === "function") window.ExitApi.exit(); else window.open(' + urlExpression + ', "_blank")';
         if (target === "pangle") return 'if (typeof window.openAppStore === "function") window.openAppStore(); else window.open(' + urlExpression + ', "_blank")';
         return 'if (window.mraid && typeof window.mraid.open === "function") window.mraid.open(' + urlExpression + '); else window.open(' + urlExpression + ', "_blank")';
@@ -1002,11 +1358,135 @@
         return /<\/head>/i.test(out) ? out.replace(/<\/head>/i, tags + "\n</head>") : tags + "\n" + out;
     }
 
+    /* ───────────── lớp PHÁT HÀNH của Mintegral trong bản tải từ SocialPeta ─────────────
+     * SocialPeta không lưu creative gốc mà chụp nó LÚC ĐANG PHÁT trên Mintegral, nên dính theo các
+     * script mà mạng tự chèn khi phục vụ. Công cụ test Mindworks (preview_util.js) và runtime thật của
+     * Mintegral đều chèn LẠI bản của chúng; bản chụp chạy sau và đè lên. Đã đo bằng preview_util.js thật:
+     *   - PlProtocol.js (chế độ inner) thay gameReady/install/gameEnd bằng postMessage lên trang cha:
+     *     SDK chấm điểm không bao giờ nhận gameReady, màn đen loading không tắt, trượt gần hết mục;
+     *   - DynamicLoader document.write m_util.js từ CDN SocialPeta (chặn hotlink: 403, thử lại 6 lần):
+     *     trượt mục "Storage requirements" (outer_chain);
+     *   - module mtg-package-loading vẽ tên + icon + mô tả app GỐC, chỉ gỡ khi có PLAYABLE:gameStart:
+     *     mở ngoài Mintegral thì đứng mãi;
+     *   - web-audio-check giữ mọi AudioContext ở suspended tới khi có MW_gameStartCheck(): game câm;
+     *   - MW_CONFIG của chiến dịch gốc đè MW_CONFIG mà Mintegral chèn cho chiến dịch mới.
+     * Luật NEO vào đầu script và có trần kích thước: code game hay nhắc lại tên biến của SDK (runtime
+     * PlaySmart đọc window.MW_CONFIG), khớp lỏng giữa thân script là xoá nhầm cả game mà vẫn báo thành công.
+     */
+    var SERVING_SRC = /rayjump\.com\/(?:hyplug|util)\/|zingfront\.com\/sp_opera\/(?:mobvista_playable_js\/|js\/web-audio-check\.js)/i;
+    var BABEL_HEAD = /^"use strict";\s*var _typeof\s*=/;
+
+    // UMD của webpack: !function(e,t){"object"==typeof exports&&…define("Tên",[],t)… — tên nằm ngay đầu.
+    function isNamedUmd(code, name) {
+        return /^!function\s*\(\s*\w+\s*,\s*\w+\s*\)\s*\{/.test(code) && code.slice(0, 400).indexOf('define("' + name + '"') >= 0;
+    }
+
+    var SERVING_SCRIPTS = [
+        { label: "PlProtocol.js", max: 20000, test: function (c) { return isNamedUmd(c, "PlProtocol"); } },
+        { label: "loader m_util (DynamicLoader)", max: 20000, test: function (c) { return isNamedUmd(c, "DynamicLoader") && c.indexOf("MTG_UTIL") >= 0; } },
+        { label: "MtgLoading", max: 300000, test: function (c) { return isNamedUmd(c, "MtgLoading"); } },
+        { label: "ReportLog", max: 100000, test: function (c) { return isNamedUmd(c, "ReportLog"); } },
+        { label: "PlHacks", max: 30000, test: function (c) { return isNamedUmd(c, "PlHacks"); } },
+        { label: "web-audio-check", max: 8000, test: function (c) { return /^(?:\/\*[\s\S]*?\*\/\s*)?\(\s*function\s*\(\s*window\s*,\s*document\s*\)/.test(c) && c.indexOf("MW_gameStartCheck") >= 0 && c.indexOf("audioCtxList") >= 0; } },
+        { label: "gói offline MTG_OFFLINE_PACKAGE", max: 60000, test: function (c) { return BABEL_HEAD.test(c) && c.indexOf("window.MTG_OFFLINE_PACKAGE={") >= 0 && /MTG_OFFLINE_PACKAGE\.init\(\)\s*;?\s*$/.test(c); } },
+        { label: "trang loading tên/icon app gốc (mtg-package-loading)", max: 300000, test: function (c) { return BABEL_HEAD.test(c) && c.indexOf("packageLoading=new function") >= 0 && c.indexOf("mtg-package-loading") >= 0; } },
+        { label: "m_util.js", max: 300000, test: function (c) { return BABEL_HEAD.test(c) && c.indexOf("window.MUTIL_ONLINE=!0") >= 0 && c.indexOf("loadMUTILJS") >= 0; } },
+        { label: "m_toolkit.js", max: 600000, test: function (c) { return BABEL_HEAD.test(c) && c.indexOf("window.MW_PREVIEWLAYER=") >= 0 && c.indexOf("triggerGameStart") >= 0; } },
+        { label: "preview_util.js", max: 600000, test: function (c) { return BABEL_HEAD.test(c) && c.indexOf("MW_PREVIEWER_LIFECYCLE") >= 0 && c.indexOf("previewer:review") >= 0; } }
+    ];
+
+    // Khoá mang danh tính chiến dịch/app gốc: chỉ trang loading/end card của lớp phát hành đọc chúng.
+    var MW_CONFIG_IDENTITY = ["MTGMaterialUUID", "MTGMaterialVersion", "app_icons", "languages", "store_url", "end_screen_info"];
+
+    // Vị trí "}" khớp với "{" tại openAt; bỏ qua ngoặc nằm trong chuỗi. -1 nếu không khớp.
+    function matchBrace(code, openAt) {
+        var depth = 0;
+        for (var i = openAt; i < code.length; i++) {
+            var c = code[i];
+            if (c === '"' || c === "'" || c === "`") {
+                for (i++; i < code.length && code[i] !== c; i++) if (code[i] === "\\") i++;
+                continue;
+            }
+            if (c === "{") depth++;
+            else if (c === "}" && --depth === 0) return i;
+        }
+        return -1;
+    }
+
+    /* MW_CONFIG KHÔNG xoá được: runtime PlaySmart đọc channel và các cờ disable_*_click, thiếu thì
+     * vpInstall2/3 gọi thẳng window.install() — tức tự chuyển store. preview_util.js cũng tự tạo một
+     * MW_CONFIG tối thiểu nếu chưa có, nên bọc kiểu "MW_CONFIG || {…}" sẽ làm mất các cờ đó.
+     * Bọc lại theo kiểu CHỈ ĐIỀN KHOÁ CÒN THIẾU và bỏ khoá danh tính: Mintegral chèn cấu hình chiến dịch
+     * mới thì cấu hình đó thắng; chạy trong công cụ test thì game vẫn giữ cờ của nó.
+     */
+    function wrapBakedMwConfig(code) {
+        var head = code.match(/^window\s*\.\s*MW_CONFIG\s*=\s*\{/);
+        if (!head) return null;
+        var openAt = head[0].length - 1, closeAt = matchBrace(code, openAt);
+        if (closeAt < 0) return null;
+        var literal = code.slice(openAt, closeAt + 1), rest = code.slice(closeAt + 1).replace(/^\s*;/, "");
+        try { new Function("return (" + literal + ");"); } catch (e) { return null; }
+        return [
+            "(function (baked) {",
+            "    " + JSON.stringify(MW_CONFIG_IDENTITY) + ".forEach(function (key) { delete baked[key]; });",
+            "    var live = window.MW_CONFIG;",
+            "    if (!live || typeof live !== \"object\") { window.MW_CONFIG = baked; return; }",
+            "    for (var key in baked) if (!Object.prototype.hasOwnProperty.call(live, key)) live[key] = baked[key];",
+            "})(" + literal + ");"
+        ].join("\n") + (rest.trim() ? "\n" + rest : "");
+    }
+
+    function servingLabelFromUrl(url) {
+        return String(url).split(/[?#]/)[0].split("/").pop() || url;
+    }
+
+    /**
+     * Gỡ lớp phát hành Mintegral (xem ghi chú trên). → { html, removed: [nhãn] }
+     * Lớp vỏ lồng iframe #MW_PLFRAME thì để nguyên: ở đó PlProtocol (chế độ outer) là cầu thật tới game
+     * trong iframe — cách đúng là chuyển sang tài liệu con rồi mới convert (app.js: useInnerDocument).
+     */
+    function stripServingLayers(html) {
+        var removed = [];
+        if (/<iframe\b[^>]*\bid\s*=\s*["']MW_PLFRAME["']/i.test(html)) return { html: html, removed: removed };
+        // Dấu vết để đọc lại file biết đã gỡ gì — KHÔNG kèm URL: máy quét link ngoài của Mindworks đọc cả comment.
+        function drop(label, gap) {
+            removed.push(label);
+            return "<!-- playable-converter: removed Mintegral serving layer: " + escapeHtmlComment(label) + " -->" + gap;
+        }
+        var out = html.replace(/<script\b([^>]*)>([\s\S]*?)<\/script>(\s*)/gi, function (all, attrs, body, gap) {
+            var src = (attrs.match(/\ssrc\s*=\s*["']([^"']+)["']/i) || [])[1];
+            var from = (attrs.match(/\sdata-inlined-from\s*=\s*["']([^"']+)["']/i) || [])[1];
+            if ((src && SERVING_SRC.test(src)) || (from && SERVING_SRC.test(from))) return drop(servingLabelFromUrl(src || from), gap);
+            if (src) return all;
+            var code = body.trim();
+            for (var i = 0; i < SERVING_SCRIPTS.length; i++) {
+                if (code.length <= SERVING_SCRIPTS[i].max && SERVING_SCRIPTS[i].test(code)) return drop(SERVING_SCRIPTS[i].label, gap);
+            }
+            if (/^window\s*\.\s*MW_CONFIG\s*=/.test(code) && code.indexOf("MTGMaterialUUID") >= 0) {
+                var wrapped = wrapBakedMwConfig(code);
+                if (wrapped) {
+                    removed.push("MW_CONFIG của app gốc (bọc lại: chỉ điền khoá còn thiếu, bỏ tên/icon/link app gốc)");
+                    return "<script" + attrs + ">\n" + wrapped + "\n</script>" + gap;
+                }
+            }
+            return all;
+        });
+        return { html: out, removed: unique(removed) };
+    }
+
     function removeForeignNetworkSdks(html, target) {
-        return html.replace(/<script\b([^>]*\bsrc\s*=\s*["']([^"']+)["'][^>]*)>\s*<\/script>/gi, function (all, attrs, src) {
+        // `\ssrc` chứ không `\bsrc`: gạch nối là ranh giới từ nên `\b` khớp cả data-src="…", biến một
+        // thẻ đã nhúng thành "script ngoài" và bỏ sót. Thuộc tính thật luôn có khoảng trắng đứng trước.
+        return html.replace(/<script\b([^>]*\ssrc\s*=\s*["']([^"']+)["'][^>]*)>\s*<\/script>/gi, function (all, attrs, src) {
             var lower = src.toLowerCase();
             if (/pangle|pangolin|byteoversea|vungle|dapi\.js|fbplayablead/.test(lower)) return '<!-- playable-converter: disabled source SDK ' + escapeHtmlComment(src) + ' -->';
             if (target !== "google" && /googlesyndication\.com\/pagead\/gadgets\/html5\/api\/exitapi/.test(lower)) return "";
+            // Cầu SDK của Mintegral (play.rayjump.com/hyplug/PlProtocol.js) định nghĩa window.install,
+            // gameReady, gameEnd, gameStart, gameClose, gameRetry. Bản phẳng đã bị stripServingLayers gỡ
+            // cho MỌI mạng đích (kể cả Mintegral: công cụ test chạy game ngay trong trang của nó, PlProtocol
+            // chế độ inner cướp gameReady). Tới được đây chỉ còn lớp vỏ #MW_PLFRAME — ở đó nó là cầu outer
+            // thật nên giữ khi đích là Mintegral.
+            if (target !== "mintegral" && /rayjump\.com\/hyplug\//.test(lower)) return '<!-- playable-converter: disabled source SDK ' + escapeHtmlComment(src) + ' -->';
             return all;
         });
     }
@@ -1015,8 +1495,12 @@
         return html.replace(/\s*<script\b[^>]*data-playable-converter=["'][^"']+["'][^>]*>[\s\S]*?<\/script>/gi, "");
     }
 
+    // Hàm thay thế chứ không phải chuỗi: content có thể chứa $& $` $' $1 (URL store, code adapter,
+    // payload nhúng) mà String.replace coi là ký hiệu — $' chèn lại cả phần đuôi chuỗi đích.
     function insertBeforeClosingBody(html, content) {
-        return /<\/body>/i.test(html) ? html.replace(/<\/body>/i, content + "\n</body>") : html + "\n" + content;
+        return /<\/body>/i.test(html)
+            ? html.replace(/<\/body>/i, function () { return content + "\n</body>"; })
+            : html + "\n" + content;
     }
 
     function readSayGamesStageQueue(html) {
@@ -1044,12 +1528,19 @@
         var errors = [], warnings = [];
         var syntaxErrors = validateInlineScripts(html);
         if (syntaxErrors.length) errors.push.apply(errors, syntaxErrors);
-        if (!/mousedown/.test(html) || !/mousemove/.test(html) || !/mouseup/.test(html)) warnings.push("Không phát hiện đầy đủ mouse down/move/up; nên kiểm tra thao tác PC.");
+        // Build Bingo, Super HTML (window.__zip) và MindWorks (window.__adapter_zip__) đều để code
+        // game trong khối nén nên không soi được mouse event từ HTML ngoài. Với MindWorks đã đo:
+        // cocos2d-js-min.js bên trong payload có đủ mousedown/mousemove/mouseup, còn HTML ngoài
+        // thiếu mousemove — cảnh báo ở đây là báo nhầm.
+        var packed = build === "bingo" || build === "mindworks"
+            || (build === "super-html" && /\bwindow\s*\.\s*(?:__zip|zip)\s*=/.test(html));
+        if (!packed && (!/mousedown/.test(html) || !/mousemove/.test(html) || !/mouseup/.test(html))) warnings.push("Không phát hiện đầy đủ mouse down/move/up; nên kiểm tra thao tác PC.");
         if (byteLength(html) > 5 * 1024 * 1024) warnings.push("File lớn hơn 5 MB.");
         if (target === "mintegral") {
             if (!/window\.gameReady\s*&&\s*window\.gameReady\s*\(\s*\)/.test(html)) errors.push("Thiếu gameReady của Mintegral.");
             if (!/window\.gameEnd\s*&&\s*window\.gameEnd\s*\(\s*\)/.test(html)) errors.push("Thiếu gameEnd của Mintegral.");
-            if (!/window\.gameStart\s*=/.test(html) || !/window\.gameClose\s*=/.test(html)) warnings.push("Thiếu gameStart/gameClose rõ ràng.");
+            // Khai báo function gameStart() {} cấp cao nhất của script thường cũng là window.gameStart (build AVK dùng cách này).
+            if (!/window\.gameStart\s*=|\bfunction\s+gameStart\s*\(/.test(html) || !/window\.gameClose\s*=|\bfunction\s+gameClose\s*\(/.test(html)) warnings.push("Thiếu gameStart/gameClose rõ ràng.");
         }
         if (target === "google" && !/ExitApi\.exit/.test(html)) errors.push("Thiếu ExitApi.exit của Google.");
         if (target === "applovin" && !/mraid\.open/.test(html)) errors.push("Thiếu CTA mraid.open của AppLovin.");
@@ -1201,6 +1692,15 @@
         encodeBase122Bytes: encodeBase122Bytes,
         detectBuild: detectBuild,
         detectSourceNetwork: detectSourceNetwork,
+        detectBingoNetwork: detectBingoNetwork,
+        detectZipEncoding: detectZipEncoding,
+        registerBuild: registerBuild,
+        // Mở cho module build ngoài (playsmart-core.js) dùng đúng một bộ luật CTA với các build có sẵn.
+        targetClickCode: targetClickCode,
+        setMraidTag: setMraidTag,
+        configureGoogleExitApi: configureGoogleExitApi,
+        escapeJsString: escapeJsString,
+        stripServingLayers: stripServingLayers,
         convert: convert,
         convertAll: convertAll,
         validate: validate,

@@ -1,0 +1,1463 @@
+{
+ "scripts": {
+  "Cinemachine.AxisState": "557c6f70a7173744abaa3967b6da6f5d",
+  "Cinemachine.CameraState": "c2a918f460a69394eb9726b31e1d404c",
+  "Cinemachine.Cinemachine3rdPersonAim": "2588cc5dedbb75e49a44aada63f7b939",
+  "Cinemachine.Cinemachine3rdPersonFollow": "bd6043bde05a7fc4cba197d06915c1e3",
+  "Cinemachine.CinemachineBasicMultiChannelPerlin": "68bb026fafb42b14791938953eaace77",
+  "Cinemachine.CinemachineBlend": "3fed8968b96eb924891cf86f5c51f661",
+  "Cinemachine.CinemachineBlendListCamera": "53258ad9ad6e71e48bb8643c9522112e",
+  "Cinemachine.CinemachineBlenderSettings": "36baaa8bdcb9d8b49b9199833965d2c3",
+  "Cinemachine.CinemachineBrain": "72ece51f2901e7445ab60da3685d6b5f",
+  "Cinemachine.CinemachineClearShot": "d62f748f5292bb343be9e6b0c84416d9",
+  "Cinemachine.CinemachineCollider": "e501d18bb52cf8c40b1853ca4904654f",
+  "Cinemachine.CinemachineCollisionImpulseSource": "cd438dd108a0f284aa931a2da434f1d3",
+  "Cinemachine.CinemachineComponentBase": "b2f73bdc979030e419f33c10913639cc",
+  "Cinemachine.CinemachineComposer": "f4044717213e31446939f7bd49c896ea",
+  "Cinemachine.CinemachineConfiner": "a2fba25a5cd15594e8f050a11e386c80",
+  "Cinemachine.CinemachineConfiner2D": "f453f694addf4275988fac205bc91968",
+  "Cinemachine.CinemachineCore": "c7d73314dfe49f8458398c6dc8edcda8",
+  "Cinemachine.CinemachineDollyCart": "99a9c787e5d1bbf48a389834c4a9641c",
+  "Cinemachine.CinemachineExtension": "4fa53a91a43ae1a4bbf6b29961b45c38",
+  "Cinemachine.CinemachineExternalCamera": "57744762d9079934292f57896d8193e0",
+  "Cinemachine.CinemachineFixedSignal": "a5969901aa40942499363f92e3787110",
+  "Cinemachine.CinemachineFollowZoom": "4700f9f03ad19f94baf0367cb7a9c988",
+  "Cinemachine.CinemachineFramingTransposer": "6ad980451443d70438faac0bc6c235a0",
+  "Cinemachine.CinemachineFreeLook": "319d2fe34a804e245819465c9505ea59",
+  "Cinemachine.CinemachineGroupComposer": "0f7633c93f0364a418841eeb8b058634",
+  "Cinemachine.CinemachineHardLockToTarget": "36d1163fa822e8b418a0a603ec078d5c",
+  "Cinemachine.CinemachineHardLookAt": "1e8b78ac948f05a46a6d8339a503172b",
+  "Cinemachine.CinemachineImpulseDefinition": "829b8a241d4653446a2cb2436c262305",
+  "Cinemachine.CinemachineImpulseListener": "00b2d199b96b516448144ab30fb26aed",
+  "Cinemachine.CinemachineImpulseManager": "eb25eb9c85a88c94aa253071e03aca6e",
+  "Cinemachine.CinemachineImpulseSource": "180ecf9b41d478f468eb3e9083753217",
+  "Cinemachine.CinemachineIndependentImpulseListener": "0c11265b855408d42af33d62691f5194",
+  "Cinemachine.CinemachineInputAxisDriver": "6d862fce0b0707949bb86058d777b116",
+  "Cinemachine.CinemachineInputProvider": "fb7194dc27b9df64c8beca7482ee8e0d",
+  "Cinemachine.CinemachineMixingCamera": "6c26251a3e1f5ac41afa5ffb404c5f71",
+  "Cinemachine.CinemachineNewFreeLook": "bd920fe83f1086148a2b401f3e66528f",
+  "Cinemachine.CinemachineNewVirtualCamera": "be817a1286f201845b5c36ae9afe9e35",
+  "Cinemachine.CinemachineOrbitalTransposer": "9384ab8608cdc3d479fe89cd51eed48f",
+  "Cinemachine.CinemachinePOV": "3c9beda531928fc40968802117a5d256",
+  "Cinemachine.CinemachinePath": "2d37e5385efd7064cb1d54c94960acae",
+  "Cinemachine.CinemachinePathBase": "a73149a4b6c41d741bc5e4e3b7711c0d",
+  "Cinemachine.CinemachinePipeline": "ac0b09e7857660247b1477e93731de29",
+  "Cinemachine.CinemachinePixelPerfect": "1a8a05de0ac134f4f9d01bef6b9da077",
+  "Cinemachine.CinemachineSameAsFollowTarget": "a4c41ac9245b87c4192012080077d830",
+  "Cinemachine.CinemachineSmoothPath": "a200b19ca1a9685429ed7e043c28e904",
+  "Cinemachine.CinemachineStateDrivenCamera": "325a6a3050a061e4b8aa51386c30e8e1",
+  "Cinemachine.CinemachineStoryboard": "82e62c82b3be64042ac529dee964cc2f",
+  "Cinemachine.CinemachineTargetGroup": "e5eb80d8e62d9d145bb50fb783c0f731",
+  "Cinemachine.CinemachineTrackedDolly": "418e42c7d0405cc48a7b83f63ea53bb3",
+  "Cinemachine.CinemachineTransposer": "fa7155796051b734daa718462081dc5f",
+  "Cinemachine.CinemachineTriggerAction": "e46ac8d61dc065848bd5a1aa7cd8c006",
+  "Cinemachine.CinemachineVirtualCamera": "45e653bab7fb20e499bda25e1b646fea",
+  "Cinemachine.CinemachineVirtualCameraBase": "15ebf04de67923d41a36c21e1fc63718",
+  "Cinemachine.ConfinerOven": "fabb19b3ae73449c856bc82fcaf6831c",
+  "Cinemachine.GroupWeightManipulator": "65eebf71eb882124fa7f75085f367e5f",
+  "Cinemachine.LensSettings": "5778d22ca832d9f47b5e73a8c5fe78a2",
+  "Cinemachine.NoiseSettings": "b7f59e54f2bfd184b9dd451a678d089b",
+  "Cinemachine.PostFX.CinemachinePostProcessing": "729aad4491e915a41bda2b8325cf757a",
+  "Cinemachine.PostFX.CinemachineVolumeSettings": "449ef5ebbe24720439ec31d15f7b6f3d",
+  "Cinemachine.RuntimeUtility": "b567991935cb6844d9bb65eda22b628f",
+  "Cinemachine.SignalSourceAsset": "cebc3fe47a919524eb4a977f726a484e",
+  "Cinemachine.TargetPositionCache": "f3984bf8b42bf0040b49d95de1a2990f",
+  "Cinemachine.UpdateTracker": "41a7beeb0ec57584382c8170981d8ac1",
+  "Cinemachine.Utility.CinemachineDebug": "10e6f8c815d3c4d45b1d98b951d53912",
+  "Cinemachine.Utility.SplineHelpers": "fca2bf25139920d4f9bf86711457992e",
+  "Cinemachine.Utility.UnityVectorExtensions": "6a0472cd31396f741969b8c1af8dd5a0",
+  "CinemachineCameraOffset": "44d70cc20219cd84593f67d248eafe36",
+  "CinemachineMixer": "961772e8b1d75dd4a915fb8a236d5a8a",
+  "CinemachineRecomposer": "0544e7b14d134a1449e61175446cfb95",
+  "CinemachineShot": "90fb794a295e73545af71bcdb7375791",
+  "CinemachineShotPlayable": "5356d1db487a5284fb27af2798adad33",
+  "CinemachineTouchInputMapper": "2adf148a19499274795e418631d7db45",
+  "CinemachineTrack": "05acc715f855ced458d76ee6f8ac6c61",
+  "Coffee.UISoftMask.AlphaHitTestTarget": "5b2b9770479f64980a9c4bb5c0260ff9",
+  "Coffee.UISoftMask.CanvasViewChangeTrigger": "2511cecf9478540ce9799b252fb467b9",
+  "Coffee.UISoftMask.MaskingShape": "a2e184ef29bd04517ade7f4ab51ef622",
+  "Coffee.UISoftMask.MaskingShapeContainer": "608b0692fd3544cd188cc3a6f14a14fa",
+  "Coffee.UISoftMask.RectTransformFitter": "994b48e5566c74a5a99adaf44292c616",
+  "Coffee.UISoftMask.SoftMask": "385b7d1277b6c4007a84c065696e0f8c",
+  "Coffee.UISoftMask.SoftMaskUtils": "c4bc04127b21d4777a30dba32a431cdb",
+  "Coffee.UISoftMask.SoftMaskable": "97bc2ebab6563400c95b036136d26ea6",
+  "Coffee.UISoftMask.SoftMaskableShaderGraphSupportFeature": "17d382206a40d47579fa72c3d2fef790",
+  "Coffee.UISoftMask.TerminalMaskingShape": "f1ea1d24977ef43d38657c4e7da11ad5",
+  "Coffee.UISoftMask.UISoftMaskProjectSettings": "eb5b5e33068c14a2bacdd6575e94f505",
+  "Coffee.UISoftMask.Utils": "bb99855d1f23b4c8eb7c819655d14d88",
+  "Coffee.UISoftMaskInternal.AlwaysIncludedShadersProxy": "c0d16b26064f2470fafed0f3d6aa3c41",
+  "Coffee.UISoftMaskInternal.CanvasExtensions": "a19bfa6ac708a425cb6b73d174a53b8c",
+  "Coffee.UISoftMaskInternal.Color32Extensions": "df9cf3253ebfb45b5a88f0b163df7dbe",
+  "Coffee.UISoftMaskInternal.ComponentExtensions": "b94cba1fe681648499c3c54c0fa07937",
+  "Coffee.UISoftMaskInternal.FastAction": "101d2d020630142d0b8208612775e2c6",
+  "Coffee.UISoftMaskInternal.FrameCache": "8e5fa7f1c706a49819f81a8c263d7cb2",
+  "Coffee.UISoftMaskInternal.GraphicExtensions": "d03756769332f4ed18f4866efc5485cc",
+  "Coffee.UISoftMaskInternal.ListExtensions": "8f4e807716f6f45f3b44032da52f9cfc",
+  "Coffee.UISoftMaskInternal.Logging": "d3bc3a4f7931d46fa878c3c4b754af13",
+  "Coffee.UISoftMaskInternal.MaterialRepository": "ee9685290653e43b98f326fc3ba6b429",
+  "Coffee.UISoftMaskInternal.MeshExtensions": "5763558c3dfe4b91b3e98fde6a099f9b",
+  "Coffee.UISoftMaskInternal.MinMax01": "a21ddb3eb3ca244b5b7a53accaa016d5",
+  "Coffee.UISoftMaskInternal.Misc": "020fa9f74de204bd4921566f2db36023",
+  "Coffee.UISoftMaskInternal.ObjectRepository": "71f96c7b5cf29463ea4d98922dcbf6ba",
+  "Coffee.UISoftMaskInternal.PowerRangeAttribute": "524c0349a655e490c83551d80369adb0",
+  "Coffee.UISoftMaskInternal.PreloadedProjectSettings": "9324f6f4b65574943bc75f13ac34364d",
+  "Coffee.UISoftMaskInternal.RenderTextureRepository": "e379ffb307407478cbac8c820811d432",
+  "Coffee.UISoftMaskInternal.ShaderVariantRegistry": "97bb25e63f01f49d99a4f895ac6d851f",
+  "Coffee.UISoftMaskInternal.SpriteExtensions": "af8f43df4a9034a72b575bab189cc487",
+  "Coffee.UISoftMaskInternal.TransformExtensions": "fb95f101d1bbd4a868747b20de6d1317",
+  "Coffee.UISoftMaskInternal.UIExtraCallbacks": "097ec17937e754a62abe39abd42b1590",
+  "Coffee.UISoftMaskInternal.Vector3Extensions": "ae76131dde71b4492bb57feb548bd111",
+  "DG.Tweening.DOTweenAnimation": "4d0390bd8b8ffd640b34fe25065ff1df",
+  "DG.Tweening.DOTweenModuleAudio": "b766d08851589514b97afb23c6f30a70",
+  "DG.Tweening.DOTweenModuleEPOOutline": "e944529dcaee98f4e9498d80e541d93e",
+  "DG.Tweening.DOTweenModulePhysics": "dae9aa560b4242648a3affa2bfabc365",
+  "DG.Tweening.DOTweenModulePhysics2D": "230fe34542e175245ba74b4659dae700",
+  "DG.Tweening.DOTweenModuleSprite": "188918ab119d93148aa0de59ccf5286b",
+  "DG.Tweening.DOTweenModuleUI": "a060394c03331a64392db53a10e7f2d1",
+  "DG.Tweening.DOTweenModuleUnityVersion": "63c02322328255542995bd02b47b0457",
+  "DG.Tweening.DOTweenModuleUtils": "7bcaf917d9cf5b84090421a5a2abe42e",
+  "DG.Tweening.DOTweenProShortcuts": "1c3190a1a1c53f449926f6d5542b4ce5",
+  "DeltaTimeScaleProcessor": "105b9c594d5d52c438095221ba29cdab",
+  "DocCodeExamples.MarkerEditorExamples": "ebaa79c245e369449a3565c4b9c3e703",
+  "FullScreenPassRendererFeature": "6d613f08f173d4dd895bb07b3230baa9",
+  "FullScreenPassRendererFeature_OldGUID": "6d613f08f173d4dd895bb07b3230baa9",
+  "LibTessDotNet.Dict": "ccb52f8dd17689f4db451245d6be4f18",
+  "LibTessDotNet.Geom": "05447b4229a380a4d86781b45703697b",
+  "LibTessDotNet.Mesh": "7b660a5d3eaa92b4e9c262b3375f38d5",
+  "LibTessDotNet.MeshUtils": "686462680039dc642a7e7ce978374c61",
+  "LibTessDotNet.PriorityHeap": "5c5849bfe0d33f44eb827c66238fb5b8",
+  "LibTessDotNet.PriorityQueue": "44e7b27572e9c4b4fa08c53ff6f62ffe",
+  "LibTessDotNet.Tess": "b999552a988638646a7a0bc804608223",
+  "OnTilePostProcessFeature": "e2fb6109d22997344ab15423c6b63b45",
+  "OnTilePostProcessPass": "7dc44b545f155e041b63be63e81832e3",
+  "Spine.Animation": "fb7099b9c6ce91740b7041dabb0752c2",
+  "Spine.AnimationState": "ec2f0e7143c8a174994595883f4b1e33",
+  "Spine.AnimationStateData": "e03d60c517d9b974db35b9fd144a1d09",
+  "Spine.Atlas": "60626307629cc034bafd42c53a901fff",
+  "Spine.AtlasAttachmentLoader": "3e6ff30e27c28344bad3e67d308c94cd",
+  "Spine.Attachment": "05b56321b2ddd8145a888746bc6ab917",
+  "Spine.Bone": "ed00e3a4b386a964fb0f1c7ffd5544e5",
+  "Spine.BoneData": "2cf831005966832449a5de742752e578",
+  "Spine.BoundingBoxAttachment": "cd8ad8fc0f5bce448ba26d096ab32e85",
+  "Spine.ClippingAttachment": "3380954b107f38b4c85a4cdfeceace42",
+  "Spine.ConstraintData": "510354e70dba52c49b35b2c27cd8ed3c",
+  "Spine.Event": "dec0d9d780605944eb4514125ab6350b",
+  "Spine.EventData": "37bbfb9fb268a644ba75052961a42b81",
+  "Spine.ExposedList": "89690af94a880744989712505f2957b1",
+  "Spine.IkConstraint": "916f8e6534860cc40824adfc2916baa7",
+  "Spine.IkConstraintData": "94ad1e9256073264785f806086a000ba",
+  "Spine.Json": "371f40ecc08b2eb4cbec49585d41e2c3",
+  "Spine.MathUtils": "03b653e54c5403b4191f5003d64c6e18",
+  "Spine.MeshAttachment": "b7f7514a003143844b6d01ecc93ed4d5",
+  "Spine.PathAttachment": "c77d9bf384a1e9f41966464e7e3b4870",
+  "Spine.PathConstraint": "731d05fbc2874c74984813ce4c5bb8df",
+  "Spine.PathConstraintData": "9d836858269be96428428fb6764dfc3a",
+  "Spine.PointAttachment": "4fdde4cc4df0952468946f4f913dcb36",
+  "Spine.RegionAttachment": "89cefdd024734a941952a05d2b5dff71",
+  "Spine.Sequence": "522632bd4e297fe47acf78100bfd8689",
+  "Spine.Skeleton": "12ac3c1c7546be24fb9625d3c850619d",
+  "Spine.SkeletonBinary": "40d8a8f15082f3844a5c9c8c3ef2047f",
+  "Spine.SkeletonBounds": "087b328a58c93b149bb977eee3a17258",
+  "Spine.SkeletonClipping": "7db809d277afd0e4a8e8c6b703002ee0",
+  "Spine.SkeletonData": "2b813f63abbb6d94a80a5c050590a0be",
+  "Spine.SkeletonJson": "6c4ab7992894bdb44a480981b1953f76",
+  "Spine.SkeletonLoader": "f649a22108e1468478ef49db96e3b715",
+  "Spine.Skin": "7df8caa3a771f464e803316a6b18c909",
+  "Spine.Slot": "6974c4b5c87687140a2417201ea43066",
+  "Spine.SlotData": "f28cb47bc1e8b434c85e6f69b2c9e15e",
+  "Spine.TextureRegion": "17b4075f6e1d4e5478f4730c2f4cc54d",
+  "Spine.TransformConstraint": "2e30316a9733f8a4b8b6c362c06dfa11",
+  "Spine.TransformConstraintData": "b7edeecc9bd7dd44faabf24f29b119a0",
+  "Spine.Triangulator": "90a8832a1f3c5f846b8773dc0e1c3238",
+  "Spine.Unity.ActivateBasedOnFlipDirection": "70ae96e4f2feb654681a2f16e4effeec",
+  "Spine.Unity.AnimationReferenceAsset": "6e3e95a05e4c9774397eeeb7bdee8ccb",
+  "Spine.Unity.AnimationTools.TimelineExtensions": "07807fefbff25484ba41b1d16911fb0e",
+  "Spine.Unity.AtlasAssetBase": "787a36933c1c6e14db2104c01ed92dcb",
+  "Spine.Unity.AttachmentTools.AtlasUtilities": "25ceef568a3dad448bf8a14fcc326964",
+  "Spine.Unity.AttachmentTools.AttachmentCloneExtensions": "3431ed563b2c62f4c8c974a99365ba52",
+  "Spine.Unity.AttachmentTools.AttachmentRegionExtensions": "7e7eac783deea004e9bc403eca68a7dc",
+  "Spine.Unity.BlendModeMaterials": "d03ca55657e89b949a4c07bc9207beac",
+  "Spine.Unity.BlendModeMaterialsAsset": "12b0b98acbcda44468a7ae4e35000abe",
+  "Spine.Unity.BoneFollower": "a1fd8daaed7b64148a34acb96ba14ce1",
+  "Spine.Unity.BoneFollowerGraphic": "b42a195b47491d34b9bcbc40898bcb29",
+  "Spine.Unity.BoundingBoxFollower": "0317ee9ba6e1b1e49a030268e026d372",
+  "Spine.Unity.BoundingBoxFollowerGraphic": "1c0bf7b497af9f74280040d96cdf88da",
+  "Spine.Unity.BuildUtilities": "a2f1169aaf0063f4da1c2b6033bbc13f",
+  "Spine.Unity.DoubleBuffered": "08b76da7751523448a87e528c48a5399",
+  "Spine.Unity.EditorSkeletonPlayer": "8b473abb659158442b906826a22f18bc",
+  "Spine.Unity.EventDataReferenceAsset": "8e60be42c1473144db0fd3337c25b500",
+  "Spine.Unity.FollowLocationRigidbody": "9fc20d5e917562341a5007777a9d0db2",
+  "Spine.Unity.FollowLocationRigidbody2D": "02aae87c39b869548a9051fbdb1975e6",
+  "Spine.Unity.FollowSkeletonUtilityRootRotation": "456a736ebb92ebf4b959fa9c4b704427",
+  "Spine.Unity.MaterialChecks": "e68fa8db689084946adce454b83e6d4a",
+  "Spine.Unity.MathUtilities": "ef2b5da9383ed474d895b702a9baf79e",
+  "Spine.Unity.MeshGenerator": "311447d6e56727c4dad7611d5fa5afbf",
+  "Spine.Unity.MeshRendererBuffers": "b1ab80744ac17724dbc0d15fdb6f4727",
+  "Spine.Unity.OnDemandTextureLoader": "57d54a357da79654aad505112bb63b9e",
+  "Spine.Unity.PointFollower": "daf461e4341180341a648c07e1899528",
+  "Spine.Unity.RegionlessAttachmentLoader": "15f0f78b87720c047a320c5e0e3f91b7",
+  "Spine.Unity.SkeletonAnimation": "d247ba06193faa74d9335f5481b2b56c",
+  "Spine.Unity.SkeletonDataAsset": "f1b3b4b945939a54ea0b23d3396115fb",
+  "Spine.Unity.SkeletonDataCompatibility": "4224df6e20549f0449154531ae080201",
+  "Spine.Unity.SkeletonDataModifierAsset": "79a44aba1f342f440965874280b4c318",
+  "Spine.Unity.SkeletonExtensions": "ea85c8f6a91a6ab45881b0dbdaabb7d0",
+  "Spine.Unity.SkeletonGraphic": "d85b887af7e6c3f45a2e2d2920d641bc",
+  "Spine.Unity.SkeletonGraphicCustomMaterials": "6c8717e10b272bf42b05d363ac2679a6",
+  "Spine.Unity.SkeletonMecanim": "f9db98c60740638449864eb028fbe7ad",
+  "Spine.Unity.SkeletonMecanimRootMotion": "95813afe390494344a6ce2cbc8bfb7d1",
+  "Spine.Unity.SkeletonPartsRenderer": "1c0b968d1e7333b499e347acb644f1c1",
+  "Spine.Unity.SkeletonRenderSeparator": "5c70a5b35f6ff2541aed8e8346b7e4d5",
+  "Spine.Unity.SkeletonRenderer": "e075b9a3e08e2f74fbd651c858ab16ed",
+  "Spine.Unity.SkeletonRendererCustomMaterials": "26947ae098a8447408d80c0c86e35b48",
+  "Spine.Unity.SkeletonRendererInstruction": "d07866ade25bd0b44a7bb1d59bacf4cb",
+  "Spine.Unity.SkeletonRootMotion": "f21c9538588898a45a3da22bf4779ab3",
+  "Spine.Unity.SkeletonRootMotionBase": "fc23a4f220b20024ab0592719f92587d",
+  "Spine.Unity.SkeletonSubmeshGraphic": "deeb12332c062954093c24a3fab10b83",
+  "Spine.Unity.SkeletonUtility": "7f726fb798ad621458c431cb9966d91d",
+  "Spine.Unity.SkeletonUtilityBone": "b238dfcde8209044b97d23f62bcaadf6",
+  "Spine.Unity.SkeletonUtilityConstraint": "522dbfcc6c916df4396f14f35048d185",
+  "Spine.Unity.SpineAtlasAsset": "a6b194f808b1af6499c93410e504af42",
+  "Spine.Unity.SpineMesh": "f834c8746034db645a52a9506ff1de89",
+  "Spine.Unity.SpineSpriteAtlasAsset": "ce59897dd7e6cbc4690a05ebaf975dff",
+  "Spine.Unity.TK2D.SpriteCollectionAttachmentLoader": "03238e4a73953c045a6cb289162532f3",
+  "Spine.Unity.WaitForSpineAnimation": "d9be5adcaf0003849a1d181173c19635",
+  "Spine.Unity.WaitForSpineAnimationComplete": "a807dd9fb79db3545b6c2859a2bbfc0b",
+  "Spine.Unity.WaitForSpineAnimationEnd": "3c5a5fe930d1ab24da154d76b24c2747",
+  "Spine.Unity.WaitForSpineEvent": "fc166d883db083e469872998172f2d38",
+  "Spine.Unity.WaitForSpineTrackEntryEnd": "8036c6c2897d2764db92f632d2aef568",
+  "Spine.VertexAttachment": "8b40cfb462a8b774891e1604e5360d32",
+  "TMPro.FastAction": "871f8edd56e84b8fb295b10cc3c78f36",
+  "TMPro.MaterialReferenceManager": "11a6a034ab84493cbed6af5ae7aae78b",
+  "TMPro.ObjectUtilsBridge": "0ce5fe4db14be432cab1bc46704eef4c",
+  "TMPro.TMP_Asset": "3bda1886f58f4e0ab1139400b160c3ee",
+  "TMPro.TMP_Character": "4ac5b6a65aaeb59478e3b78660e9f134",
+  "TMPro.TMP_CharacterInfo": "90fe1c65e6bb3bc4e90862df7297719e",
+  "TMPro.TMP_ColorGradient": "54d21f6ece3b46479f0c328f8c6007e0",
+  "TMPro.TMP_Compatibility": "21364f754cf9b9b47a60742332d4af56",
+  "TMPro.TMP_DefaultControls": "322392995be44d23a3c86cfd972f838f",
+  "TMPro.TMP_Dropdown": "7b743370ac3e4ec2a1668f5455a8ef8a",
+  "TMPro.TMP_DynamicFontAssetUtilities": "aaf9006568d76504f982305b517fb490",
+  "TMPro.TMP_EditorResourceManager": "6b259c4003a802847b9ada90744e34c5",
+  "TMPro.TMP_FontAsset": "71c1514a6bd24e1e882cebbe1904ce04",
+  "TMPro.TMP_FontAssetUtilities": "0a017569bfe174e4890797b4d64cbabc",
+  "TMPro.TMP_FontFeatureTable": "5ea9f573d4b800a49b9d83a1f61c0a88",
+  "TMPro.TMP_InputField": "2da0c512f12947e489f739169773d7ca",
+  "TMPro.TMP_InputValidator": "79ff392d1bde4ad78a3836a4a480392d",
+  "TMPro.TMP_LineInfo": "b6e75d7f429a4e7e9e1ffb4f85cff49f",
+  "TMPro.TMP_ListPool": "28375447bcea455c9b51a6650b10c9d7",
+  "TMPro.TMP_MaterialManager": "6d9df2bc198c417db00037803568139c",
+  "TMPro.TMP_MeshInfo": "e21bec35f48a44298911b25ead550ce3",
+  "TMPro.TMP_ObjectPool": "e69259f6ff914146ad610be5491eb44a",
+  "TMPro.TMP_PackageResourceImporter": "cf1fe50a641faac4691bf49eb32ce333",
+  "TMPro.TMP_ScrollbarEventHandler": "34e150112c1c42ac83170b52d898e322",
+  "TMPro.TMP_SelectionCaret": "ca819640f53b48919bf7774744f7f15e",
+  "TMPro.TMP_Settings": "2705215ac5b84b70bacc50632be6e391",
+  "TMPro.TMP_Sprite": "968a09f153574430a6e15ae975145768",
+  "TMPro.TMP_SpriteAnimator": "6366ee97f6b541449155028b9487355a",
+  "TMPro.TMP_SpriteAsset": "84a92b25f83d49b9bc132d206b370281",
+  "TMPro.TMP_SpriteCharacter": "202d758d102b6854a9710c8b93db742c",
+  "TMPro.TMP_SpriteGlyph": "5b5c6a576605b3c4aab7d27193785f27",
+  "TMPro.TMP_Style": "30bed781e402439ab8ce4e3357708115",
+  "TMPro.TMP_StyleSheet": "ab2114bdc8544297b417dfefe9f1e410",
+  "TMPro.TMP_SubMesh": "07994bfe8b0e4adb97d706de5dea48d5",
+  "TMPro.TMP_SubMeshUI": "058cba836c1846c3aa1c5fd2e28aea77",
+  "TMPro.TMP_Text": "5143f58107604835ab1a5efa2d8818fd",
+  "TMPro.TMP_TextElement": "543674eec776b1442a192c932e6cd9b3",
+  "TMPro.TMP_TextElement_Legacy": "87ab1bebe13f41f89d5427e7d2c34d58",
+  "TMPro.TMP_TextInfo": "4ae64f3f72004807a9f919f9c27af0db",
+  "TMPro.TMP_TextParsingUtilities": "6ad632cbcc87f634d9b86006cdffdaf5",
+  "TMPro.TMP_TextProcessingStack": "20a9b557a46149dfbfa04a3a7080f5aa",
+  "TMPro.TMP_TextUtilities": "4f0ca6874aa74540bb3d4fe5a0f86bcc",
+  "TMPro.TMP_UpdateManager": "691db8cb70c4426a8ae718465c21345f",
+  "TMPro.TMPro_EventManager": "96e9072453a441618754c478755b3028",
+  "TMPro.TMPro_ExtensionMethods": "77476292f9fa4905a787e6417853846b",
+  "TMPro.TextContainer": "32d40088a6124c578ad6b428df586e2e",
+  "TMPro.TextMeshPro": "9541d86e2fd84c1d9990edf0852d74ab",
+  "TMPro.TextMeshProUGUI": "f4688fdb7df04437aeb418b961361dc5",
+  "Unity.Cinemachine.AxisState": "557c6f70a7173744abaa3967b6da6f5d",
+  "Unity.Cinemachine.BlendManager": "486a73a8310372840b8f6347258269ac",
+  "Unity.Cinemachine.CameraBlendStack": "f6867fa804c14cf40b3f68fd943d8aae",
+  "Unity.Cinemachine.CameraState": "c2a918f460a69394eb9726b31e1d404c",
+  "Unity.Cinemachine.CameraTarget": "40561d76a7aecca4c99c957236b9f2a6",
+  "Unity.Cinemachine.CameraUpdateManager": "9aaf72ea152580747be7476003654a7f",
+  "Unity.Cinemachine.Cinemachine3rdPersonFollow": "bd6043bde05a7fc4cba197d06915c1e3",
+  "Unity.Cinemachine.CinemachineAutoFocus": "a7362d5a2f8ea3347bfcc808a1e9290e",
+  "Unity.Cinemachine.CinemachineBasicMultiChannelPerlin": "68bb026fafb42b14791938953eaace77",
+  "Unity.Cinemachine.CinemachineBlend": "3fed8968b96eb924891cf86f5c51f661",
+  "Unity.Cinemachine.CinemachineBlenderSettings": "36baaa8bdcb9d8b49b9199833965d2c3",
+  "Unity.Cinemachine.CinemachineBrain": "72ece51f2901e7445ab60da3685d6b5f",
+  "Unity.Cinemachine.CinemachineBrainEvents": "33a510488cc26384ea9c0600441770b2",
+  "Unity.Cinemachine.CinemachineCamera": "f9dfa5b682dcd46bda6128250e975f58",
+  "Unity.Cinemachine.CinemachineCameraEvents": "8c657da9fbf87ac4caa9deae71bbb343",
+  "Unity.Cinemachine.CinemachineCameraManagerBase": "6d5b9345e21dd9641bc2689c45e4e021",
+  "Unity.Cinemachine.CinemachineCameraManagerEvents": "3adf4b57b2fccae47aaac19bb6c0cbd2",
+  "Unity.Cinemachine.CinemachineCameraOffset": "44d70cc20219cd84593f67d248eafe36",
+  "Unity.Cinemachine.CinemachineClearShot": "d62f748f5292bb343be9e6b0c84416d9",
+  "Unity.Cinemachine.CinemachineCollider": "e501d18bb52cf8c40b1853ca4904654f",
+  "Unity.Cinemachine.CinemachineCollisionImpulseSource": "cd438dd108a0f284aa931a2da434f1d3",
+  "Unity.Cinemachine.CinemachineComponentBase": "b2f73bdc979030e419f33c10913639cc",
+  "Unity.Cinemachine.CinemachineComposer": "f4044717213e31446939f7bd49c896ea",
+  "Unity.Cinemachine.CinemachineConfiner": "a2fba25a5cd15594e8f050a11e386c80",
+  "Unity.Cinemachine.CinemachineConfiner2D": "f453f694addf4275988fac205bc91968",
+  "Unity.Cinemachine.CinemachineConfiner3D": "4d75924d76b05344aa410607bc57db98",
+  "Unity.Cinemachine.CinemachineCore": "c7d73314dfe49f8458398c6dc8edcda8",
+  "Unity.Cinemachine.CinemachineDebug": "10e6f8c815d3c4d45b1d98b951d53912",
+  "Unity.Cinemachine.CinemachineDecollider": "ca7de3aefa901374ba29464584a3109a",
+  "Unity.Cinemachine.CinemachineDeoccluder": "dbe43d662878a7c43bcd44d43c9e2094",
+  "Unity.Cinemachine.CinemachineDoNotUpgrade": "5bb7ed9b01cc9524cb39531d82ba58a0",
+  "Unity.Cinemachine.CinemachineDollyCart": "99a9c787e5d1bbf48a389834c4a9641c",
+  "Unity.Cinemachine.CinemachineExtension": "4fa53a91a43ae1a4bbf6b29961b45c38",
+  "Unity.Cinemachine.CinemachineExternalCamera": "57744762d9079934292f57896d8193e0",
+  "Unity.Cinemachine.CinemachineFixedSignal": "a5969901aa40942499363f92e3787110",
+  "Unity.Cinemachine.CinemachineFollow": "b617507da6d07e749b7efdb34e1173e1",
+  "Unity.Cinemachine.CinemachineFollowZoom": "4700f9f03ad19f94baf0367cb7a9c988",
+  "Unity.Cinemachine.CinemachineFramingTransposer": "6ad980451443d70438faac0bc6c235a0",
+  "Unity.Cinemachine.CinemachineFreeLook": "319d2fe34a804e245819465c9505ea59",
+  "Unity.Cinemachine.CinemachineFreeLookModifier": "a076c17fe76165e4f8ed21498b877bf9",
+  "Unity.Cinemachine.CinemachineGroupComposer": "0f7633c93f0364a418841eeb8b058634",
+  "Unity.Cinemachine.CinemachineGroupFraming": "4eb4843bae7d24943842ea23130dcd55",
+  "Unity.Cinemachine.CinemachineHardLockToTarget": "36d1163fa822e8b418a0a603ec078d5c",
+  "Unity.Cinemachine.CinemachineHardLookAt": "1e8b78ac948f05a46a6d8339a503172b",
+  "Unity.Cinemachine.CinemachineImpulseDefinition": "829b8a241d4653446a2cb2436c262305",
+  "Unity.Cinemachine.CinemachineImpulseListener": "00b2d199b96b516448144ab30fb26aed",
+  "Unity.Cinemachine.CinemachineImpulseManager": "eb25eb9c85a88c94aa253071e03aca6e",
+  "Unity.Cinemachine.CinemachineImpulseSource": "180ecf9b41d478f468eb3e9083753217",
+  "Unity.Cinemachine.CinemachineInputAxisController": "89875cdc57c54474a8a74efd9b2a3b5d",
+  "Unity.Cinemachine.CinemachineInputAxisDriver": "6d862fce0b0707949bb86058d777b116",
+  "Unity.Cinemachine.CinemachineInputProvider": "fb7194dc27b9df64c8beca7482ee8e0d",
+  "Unity.Cinemachine.CinemachineLegacyCameraEvents": "7cd5c5438d470aa429f0e8c58581471c",
+  "Unity.Cinemachine.CinemachineMixerEventsBase": "75f705e6f5d33bf4289d6f6ab72e8af5",
+  "Unity.Cinemachine.CinemachineMixingCamera": "6c26251a3e1f5ac41afa5ffb404c5f71",
+  "Unity.Cinemachine.CinemachineOrbitalFollow": "3b5d7c088409d9a40b7b09aa707777f8",
+  "Unity.Cinemachine.CinemachineOrbitalTransposer": "9384ab8608cdc3d479fe89cd51eed48f",
+  "Unity.Cinemachine.CinemachinePOV": "3c9beda531928fc40968802117a5d256",
+  "Unity.Cinemachine.CinemachinePanTilt": "62d54399b04b4fa48a73e121d4937dd4",
+  "Unity.Cinemachine.CinemachinePath": "2d37e5385efd7064cb1d54c94960acae",
+  "Unity.Cinemachine.CinemachinePathBase": "a73149a4b6c41d741bc5e4e3b7711c0d",
+  "Unity.Cinemachine.CinemachinePipeline": "ac0b09e7857660247b1477e93731de29",
+  "Unity.Cinemachine.CinemachinePixelPerfect": "1a8a05de0ac134f4f9d01bef6b9da077",
+  "Unity.Cinemachine.CinemachinePlayableMixer": "961772e8b1d75dd4a915fb8a236d5a8a",
+  "Unity.Cinemachine.CinemachinePositionComposer": "886251e9a18ece04ea8e61686c173e1b",
+  "Unity.Cinemachine.CinemachinePostProcessing": "729aad4491e915a41bda2b8325cf757a",
+  "Unity.Cinemachine.CinemachineRecomposer": "0544e7b14d134a1449e61175446cfb95",
+  "Unity.Cinemachine.CinemachineRotateWithFollowTarget": "4afa82ae3200b82408d605c3dbdd1e38",
+  "Unity.Cinemachine.CinemachineRotationComposer": "f38bda98361e1de48a4ca2bd86ea3c17",
+  "Unity.Cinemachine.CinemachineSameAsFollowTarget": "a4c41ac9245b87c4192012080077d830",
+  "Unity.Cinemachine.CinemachineSequencerCamera": "53258ad9ad6e71e48bb8643c9522112e",
+  "Unity.Cinemachine.CinemachineShot": "90fb794a295e73545af71bcdb7375791",
+  "Unity.Cinemachine.CinemachineShotPlayable": "5356d1db487a5284fb27af2798adad33",
+  "Unity.Cinemachine.CinemachineShotQualityEvaluator": "28788538b820793469a6374f5cfb254f",
+  "Unity.Cinemachine.CinemachineSmoothPath": "a200b19ca1a9685429ed7e043c28e904",
+  "Unity.Cinemachine.CinemachineSplineCart": "450f466b666a79a4698f2b19a5c87c03",
+  "Unity.Cinemachine.CinemachineSplineDolly": "90eebaab98e4b44b0ba8c79821e554e1",
+  "Unity.Cinemachine.CinemachineSplineDollyLookAtTargets": "28e2023ac4c6b204e9bad440d2cea142",
+  "Unity.Cinemachine.CinemachineSplineRoll": "c8204899cee524bc2831d2745adc07e6",
+  "Unity.Cinemachine.CinemachineSplineSmoother": "c5342500578afb24a9b83d6343d32a0f",
+  "Unity.Cinemachine.CinemachineStateDrivenCamera": "325a6a3050a061e4b8aa51386c30e8e1",
+  "Unity.Cinemachine.CinemachineStoryboard": "82e62c82b3be64042ac529dee964cc2f",
+  "Unity.Cinemachine.CinemachineTargetGroup": "e5eb80d8e62d9d145bb50fb783c0f731",
+  "Unity.Cinemachine.CinemachineThirdPersonAim": "2588cc5dedbb75e49a44aada63f7b939",
+  "Unity.Cinemachine.CinemachineThirdPersonFollow": "625c14eee3ad46c99df7c7c891ef668a",
+  "Unity.Cinemachine.CinemachineTouchInputMapper": "2adf148a19499274795e418631d7db45",
+  "Unity.Cinemachine.CinemachineTrack": "05acc715f855ced458d76ee6f8ac6c61",
+  "Unity.Cinemachine.CinemachineTrackedDolly": "418e42c7d0405cc48a7b83f63ea53bb3",
+  "Unity.Cinemachine.CinemachineTransposer": "fa7155796051b734daa718462081dc5f",
+  "Unity.Cinemachine.CinemachineTriggerAction": "e46ac8d61dc065848bd5a1aa7cd8c006",
+  "Unity.Cinemachine.CinemachineVirtualCamera": "45e653bab7fb20e499bda25e1b646fea",
+  "Unity.Cinemachine.CinemachineVirtualCameraBase": "15ebf04de67923d41a36c21e1fc63718",
+  "Unity.Cinemachine.CinemachineVolumeSettings": "449ef5ebbe24720439ec31d15f7b6f3d",
+  "Unity.Cinemachine.ConfinerOven": "fabb19b3ae73449c856bc82fcaf6831c",
+  "Unity.Cinemachine.DebugText": "01011f0717cf4b59b383b1fa591ddb07",
+  "Unity.Cinemachine.FocusDistance": "b8975705260499d4fbdb579697c171f8",
+  "Unity.Cinemachine.GroupWeightManipulator": "65eebf71eb882124fa7f75085f367e5f",
+  "Unity.Cinemachine.InputAxis": "9daf1d5bb6317974faf250a976c20d0c",
+  "Unity.Cinemachine.InputAxisControllerBase": "95387f7c3fe4a9d4b83609182233c511",
+  "Unity.Cinemachine.LegacyLensSettings": "8ca134f3775ab504686258c3e27322cb",
+  "Unity.Cinemachine.LensSettings": "5778d22ca832d9f47b5e73a8c5fe78a2",
+  "Unity.Cinemachine.LookaheadSettings": "efbf651422c59424fbb414b486a8298e",
+  "Unity.Cinemachine.NoiseSettings": "b7f59e54f2bfd184b9dd451a678d089b",
+  "Unity.Cinemachine.PrioritySettings": "bbcc22ff25dc0464689c1c9af1cef4da",
+  "Unity.Cinemachine.RuntimeUtility": "b567991935cb6844d9bb65eda22b628f",
+  "Unity.Cinemachine.ScreenComposerSettings": "00ae3a1da2e98ca43a0992f148b20163",
+  "Unity.Cinemachine.SignalSourceAsset": "cebc3fe47a919524eb4a977f726a484e",
+  "Unity.Cinemachine.SplineAutoDolly": "1c987ba0c29c30143b692b275a4ca2d0",
+  "Unity.Cinemachine.SplineContainerExtensions": "a2bcf7dacc7ccab43a56f7d1e685e89d",
+  "Unity.Cinemachine.SplineHelpers": "fca2bf25139920d4f9bf86711457992e",
+  "Unity.Cinemachine.SplineSettings": "b8d6210cd6ab2e24bbe05d11fc9fb57d",
+  "Unity.Cinemachine.TargetPositionCache": "f3984bf8b42bf0040b49d95de1a2990f",
+  "Unity.Cinemachine.UnityVectorExtensions": "6a0472cd31396f741969b8c1af8dd5a0",
+  "Unity.Cinemachine.UpdateTracker": "41a7beeb0ec57584382c8170981d8ac1",
+  "Unity.Cinemachine.VirtualCameraRegistry": "c49f0086bddfacf42acfd4f44b870aba",
+  "UnityEditor.Rendering.Universal.SceneViewDrawMode": "d7255bed85944a04fa68dd4d1d28022a",
+  "UnityEngine.EventSystems.AxisEventData": "b180fd8310805e44dbbef545d0231418",
+  "UnityEngine.EventSystems.BaseEventData": "91f495459b6e34f419ac123740d798b1",
+  "UnityEngine.EventSystems.BaseInput": "1511ccae7919cfc46b603b9b337fdc94",
+  "UnityEngine.EventSystems.BaseInputModule": "1ea10891dd782154ca0fb67bce9e6f72",
+  "UnityEngine.EventSystems.BaseRaycaster": "426106349a0ff964fa4e7178c1d3a4f5",
+  "UnityEngine.EventSystems.EventSystem": "76c392e42b5098c458856cdf6ecaaaa1",
+  "UnityEngine.EventSystems.EventTrigger": "d0b148fe25e99eb48b9724523833bab1",
+  "UnityEngine.EventSystems.ExecuteEvents": "623c79a1e113b4941afdbfc88d19e8fd",
+  "UnityEngine.EventSystems.Physics2DRaycaster": "56666c5a40171f54783dd416a44f42bf",
+  "UnityEngine.EventSystems.PhysicsRaycaster": "c49b4cc203aa6414fae5c798d1d0e7d6",
+  "UnityEngine.EventSystems.PointerEventData": "75df57ccb1e44c64085399277405e1ca",
+  "UnityEngine.EventSystems.PointerInputModule": "cbab8835092323a4389f2dc7d8f6c781",
+  "UnityEngine.EventSystems.RaycastResult": "3550d8ec6f29ab34d895ae9a43d560c2",
+  "UnityEngine.EventSystems.RaycasterManager": "26570be2af04195458e6f1ac1f5c48e0",
+  "UnityEngine.EventSystems.StandaloneInputModule": "4f231c4fb786f3946a6b90b886c48677",
+  "UnityEngine.EventSystems.TouchInputModule": "2d49b7c1bcd2e07499844da127be038d",
+  "UnityEngine.EventSystems.UIBehaviour": "0aaa057ce5566e940b18a0ccd0344693",
+  "UnityEngine.Experimental.Rendering.Universal.PixelPerfectCamera": "c88f5cead0c0b2a4eb05b5900433f8d1",
+  "UnityEngine.Experimental.Rendering.Universal.RenderObjects": "6b3d386ba5cd94485973aee1479b272e",
+  "UnityEngine.Experimental.Rendering.Universal.RenderObjectsPass": "dbd10d839f22d4127aeb9851dfed8caa",
+  "UnityEngine.Rendering.RenderGraphGraphicsAutomatedTests": "f97d26789369242d4a39fdf71bb9e045",
+  "UnityEngine.Rendering.SurfaceCache": "854554dea0a060645879ba79a3cd6503",
+  "UnityEngine.Rendering.URPReflectionProbeSettings": "35922f772e2f746e0a76b49701b8c04a",
+  "UnityEngine.Rendering.Universal.AdditionalLightsShadowAtlasLayout": "6fa1a543f4721444d94e0b3200fa22a8",
+  "UnityEngine.Rendering.Universal.Bloom": "0b2db86121404754db890f4c8dfe81b2",
+  "UnityEngine.Rendering.Universal.BuddyAllocator": "d8a4da972c8e43bc911abe97acb0031c",
+  "UnityEngine.Rendering.Universal.CapturePass": "0f5a9bd148c9a4a3198fdd2365b6e514",
+  "UnityEngine.Rendering.Universal.ChannelMixer": "cdfbdbb87d3286943a057f7791b43141",
+  "UnityEngine.Rendering.Universal.ChromaticAberration": "81180773991d8724ab7f2d216912b564",
+  "UnityEngine.Rendering.Universal.CinemachineUniversalPixelPerfect": "9d020dac04a1b2b44a3a36eb8abe528f",
+  "UnityEngine.Rendering.Universal.Clipper": "490481dd6f7a2a84b8c28566abbc677b",
+  "UnityEngine.Rendering.Universal.ColorAdjustments": "66f335fb1ffd8684294ad653bf1c7564",
+  "UnityEngine.Rendering.Universal.ColorCurves": "3eb4b772797da9440885e8bd939e9560",
+  "UnityEngine.Rendering.Universal.ColorLookup": "e021b4c809a781e468c2988c016ebbea",
+  "UnityEngine.Rendering.Universal.CompatibilityMode.PixelPerfectBackgroundPass": "d4ffb7da24670bf4687d34e0a1e19eaa",
+  "UnityEngine.Rendering.Universal.CompatibilityMode.PostProcessPass": "858a96c3295017349ab0f956b9883bb9",
+  "UnityEngine.Rendering.Universal.CompatibilityMode.PostProcessPasses": "c1fb44c6df759ae498bd738a433a1c60",
+  "UnityEngine.Rendering.Universal.CompatibilityMode.Render2DLightingPass": "c4cbc2d2d710ce84696437385ac8866c",
+  "UnityEngine.Rendering.Universal.ComponentUtility": "06368c8598883e74380014e9a7db3e7c",
+  "UnityEngine.Rendering.Universal.CompositeShadowCaster2D": "38f48a8d66b2adc46887f23a3a88ac01",
+  "UnityEngine.Rendering.Universal.CopyCameraSortingLayerPass": "1e2567cd71037a647ad53fc83080600b",
+  "UnityEngine.Rendering.Universal.DBufferRenderPass": "d2bfdb1a6a725194f86f62742dda59d2",
+  "UnityEngine.Rendering.Universal.DebugDisplaySettingsCommon": "89bc0329853842ae999d6f86829fc126",
+  "UnityEngine.Rendering.Universal.DebugDisplaySettingsLighting": "e3df3f6511ee9d84fb93259d602ff2e5",
+  "UnityEngine.Rendering.Universal.DebugDisplaySettingsMaterial": "b64304a6322ab44a3acc9758c949e286",
+  "UnityEngine.Rendering.Universal.DebugDisplaySettingsRendering": "6f1482d9a0a18492f96f7cae7df31add",
+  "UnityEngine.Rendering.Universal.DebugDisplayStats": "cd017e26c44959440b65ae797d9d4d90",
+  "UnityEngine.Rendering.Universal.DebugHandler": "a684da720c3a43aaa94d1c3e9de4321f",
+  "UnityEngine.Rendering.Universal.DebugRenderSetup": "a7745542269049e0a733b635ef8e4df8",
+  "UnityEngine.Rendering.Universal.DecalChunk": "c8e19e79f3205474ab6ddb2a8c2d50f7",
+  "UnityEngine.Rendering.Universal.DecalCreateDrawCallSystem": "939a2c8bde6318d4aae61003b98bafd0",
+  "UnityEngine.Rendering.Universal.DecalDrawSystem": "8e7118b526134a64dac2e096e1466dd6",
+  "UnityEngine.Rendering.Universal.DecalEntityManager": "d776af40f15db584481ac25590babc57",
+  "UnityEngine.Rendering.Universal.DecalForwardEmissivePass": "93c9bd87382837c4aab136fa4c0c7bf8",
+  "UnityEngine.Rendering.Universal.DecalGBufferRenderPass": "4fc75fc0db61f674ab4e788dd0b34295",
+  "UnityEngine.Rendering.Universal.DecalPreviewPass": "f104ef5e898a82f4c9814ea70f7dfb2b",
+  "UnityEngine.Rendering.Universal.DecalProjector": "0777d029ed3dffa4692f417d4aba19ca",
+  "UnityEngine.Rendering.Universal.DecalRendererFeature": "a1614fc811f8f184697d9bee70ab9fe5",
+  "UnityEngine.Rendering.Universal.DecalScreenSpaceRenderPass": "689773a2623777f4980186bdb52e4df5",
+  "UnityEngine.Rendering.Universal.DecalShaderPassNames": "67e030bdec7407b439d6442945b428ce",
+  "UnityEngine.Rendering.Universal.DecalSkipCulledSystem": "ad9384b4a85870d429d445bbad3ed38d",
+  "UnityEngine.Rendering.Universal.DecalUpdateCachedSystem": "3353b3e35f17cf840bda1ee7e858a4c7",
+  "UnityEngine.Rendering.Universal.DecalUpdateCulledSystem": "46a8b2f3e1abb2145a6a4f00b699a87e",
+  "UnityEngine.Rendering.Universal.DecalUpdateCullingGroupSystem": "81f448cc93783d24fbc04af4b95e8af0",
+  "UnityEngine.Rendering.Universal.DepthOfField": "c01700fd266d6914ababb731e09af2eb",
+  "UnityEngine.Rendering.Universal.DisallowMultipleRendererFeature": "43a7ba8bc4aba4c199e05fe79d3f9bee",
+  "UnityEngine.Rendering.Universal.Documentation": "46662bacf9caecb4987e43ba520cc30c",
+  "UnityEngine.Rendering.Universal.DrawLight2DPass": "718db304c67a4e7692ab540c060259b2",
+  "UnityEngine.Rendering.Universal.DrawNormal2DPass": "b256dac03c4645f593e9cb8ecbc51419",
+  "UnityEngine.Rendering.Universal.DrawRenderer2DPass": "e0f10937bae94291b66fd98a6d300c08",
+  "UnityEngine.Rendering.Universal.DrawScreenSpaceUIPass": "a834bac5135fab746bc234ec665972de",
+  "UnityEngine.Rendering.Universal.DrawShadow2DPass": "75b765822461a574aa8530ff269a3686",
+  "UnityEngine.Rendering.Universal.DrawSkyboxPass": "ae3e4e9915f7b6347b65203987c4f8b0",
+  "UnityEngine.Rendering.Universal.EdgeDictionary": "aca2b17be79ab654989699ca3d36b741",
+  "UnityEngine.Rendering.Universal.FilmGrain": "29fa0085f50d5e54f8144f766051a691",
+  "UnityEngine.Rendering.Universal.Fixed2": "143650d3fc00425ebbb8b7ac9e5c3f78",
+  "UnityEngine.Rendering.Universal.ForwardRendererData": "f971995892640ec4f807ef396269e91e",
+  "UnityEngine.Rendering.Universal.FullScreenPassRendererFeature": "b00045f12942b46c698459096c89274e",
+  "UnityEngine.Rendering.Universal.GlobalPropertiesPass": "3c49b0c9c0fdfac469942832f71ce5b1",
+  "UnityEngine.Rendering.Universal.HDRDebugViewPass": "4bcbfb254d9395f439b5d8a711e29acd",
+  "UnityEngine.Rendering.Universal.InclusiveRange": "527aa596a18643c2879c1723a3d3b64a",
+  "UnityEngine.Rendering.Universal.Internal.AdditionalLightsShadowCasterPass": "f46c1a0c3e3a98848a0efbf4e1fd5675",
+  "UnityEngine.Rendering.Universal.Internal.ColorGradingLutPass": "4ab9de92acc9d124bbc8f9b8e240d9c4",
+  "UnityEngine.Rendering.Universal.Internal.CopyColorPass": "7e18083ec47e7446fac286a4ecd439fc",
+  "UnityEngine.Rendering.Universal.Internal.CopyDepthPass": "d6268b3babfc1004c82ace3c407f46ef",
+  "UnityEngine.Rendering.Universal.Internal.DeferredLights": "f8a1318f0ebaa394fbc8d104806092b4",
+  "UnityEngine.Rendering.Universal.Internal.DeferredPass": "1d258bcfb9f91794090920274896e493",
+  "UnityEngine.Rendering.Universal.Internal.DepthNormalOnlyPass": "6dfa2b31659ab4047b6bc33be7d8f07e",
+  "UnityEngine.Rendering.Universal.Internal.DepthOnlyPass": "2b327960b30da614ca5f44f2fef0137a",
+  "UnityEngine.Rendering.Universal.Internal.DrawObjectsPass": "d2138a73081d8c34d901cf7a321f1099",
+  "UnityEngine.Rendering.Universal.Internal.FinalBlitPass": "b66efce03c1804a4fbef78cccf176e4d",
+  "UnityEngine.Rendering.Universal.Internal.ForwardLights": "54d9cfe23e3274c689c539ee0ee17dcf",
+  "UnityEngine.Rendering.Universal.Internal.GBufferPass": "10e31bb2e2b26314bb6132009378847c",
+  "UnityEngine.Rendering.Universal.Internal.MainLightShadowCasterPass": "51015cd4dddd59d4b95f01cf645067bd",
+  "UnityEngine.Rendering.Universal.Internal.NormalReconstruction": "2ceaf9622df488b4188ec28a142bdd85",
+  "UnityEngine.Rendering.Universal.Internal.RenderTargetBufferSystem": "4e520775f70c7bb40bab742eb999d0e4",
+  "UnityEngine.Rendering.Universal.InternalEngineBridge": "e04c99c6b908b49428428bfedd4110b6",
+  "UnityEngine.Rendering.Universal.InvokeOnRenderObjectCallbackPass": "65317dda628fae54d953accd02570d92",
+  "UnityEngine.Rendering.Universal.LayerUtility": "837cbe89c0a94e149f5b494ae9c69a51",
+  "UnityEngine.Rendering.Universal.LensDistortion": "c5e1dc532bcb41949b58bc4f2abfbb7e",
+  "UnityEngine.Rendering.Universal.LiftGammaGain": "5485954d14dfb9a4c8ead8edb0ded5b1",
+  "UnityEngine.Rendering.Universal.Light2D": "073797afb82c5a1438f328866b10b3f0",
+  "UnityEngine.Rendering.Universal.Light2DBlendStyle": "f4caf3da21d83644ea1c04986c6cea14",
+  "UnityEngine.Rendering.Universal.Light2DCullResult": "704a37a0ce184459805c0b7719a25a60",
+  "UnityEngine.Rendering.Universal.Light2DLookupTexture": "fed3c64eff8b51649bfa3da654d69182",
+  "UnityEngine.Rendering.Universal.Light2DManager": "d8151411c155429aa167611d958fbb8c",
+  "UnityEngine.Rendering.Universal.LightBatch": "c67e061ed96500e4ba8ddeabc5f46958",
+  "UnityEngine.Rendering.Universal.LightCookieManager": "b2e28cf5a5994852b1f65ee5a9794985",
+  "UnityEngine.Rendering.Universal.LightMinMaxZJob": "c7144b5b3e5194263a2f290811e97974",
+  "UnityEngine.Rendering.Universal.LightUtility": "fd90885134624894ba845bbc692698a0",
+  "UnityEngine.Rendering.Universal.MotionBlur": "ccf1aba9553839d41ae37dd52e9ebcce",
+  "UnityEngine.Rendering.Universal.MotionVectorRenderPass": "096294dfb309e47929b561541e4b087e",
+  "UnityEngine.Rendering.Universal.OnTilePostProcessResource": "24921b8147a072847b68efb524c025e3",
+  "UnityEngine.Rendering.Universal.PaniniProjection": "fb60a22f311433c4c962b888d1393f88",
+  "UnityEngine.Rendering.Universal.PinnedArray": "8e137341e98d40119699d4357b618a46",
+  "UnityEngine.Rendering.Universal.PixelPerfectBackgroundPass": "d4ffb7da24670bf4687d34e0a1e19eaa",
+  "UnityEngine.Rendering.Universal.PixelPerfectCamera": "c88f5cead0c0b2a4eb05b5900433f8d1",
+  "UnityEngine.Rendering.Universal.PixelPerfectCameraInternal": "adcb49d2b04b1654b85e627fe5dde64f",
+  "UnityEngine.Rendering.Universal.PostProcessData": "572910c10080c0945a0ef731ccedc739",
+  "UnityEngine.Rendering.Universal.PostProcessPass": "858a96c3295017349ab0f956b9883bb9",
+  "UnityEngine.Rendering.Universal.PostProcessPassRenderGraph": "7d7d4ecff4c4b59488b97a13efb52739",
+  "UnityEngine.Rendering.Universal.PostProcessPasses": "c1fb44c6df759ae498bd738a433a1c60",
+  "UnityEngine.Rendering.Universal.PostProcessUtils": "f2a793e0b6312e9449cf44973fd6acb0",
+  "UnityEngine.Rendering.Universal.ProbeVolumeDebugPass": "14a56f221d48d58419103d8e8c070dd9",
+  "UnityEngine.Rendering.Universal.RawColorHistory": "d8d2b2ac40c1940d281d4f1f8384a0bf",
+  "UnityEngine.Rendering.Universal.RawDepthHistory": "e120334449e144591bf8fd51debb4063",
+  "UnityEngine.Rendering.Universal.ReflectionProbeManager": "c3b2a033abc34e08be7ae96070bd4805",
+  "UnityEngine.Rendering.Universal.ReflectionProbeMinMaxZJob": "1fca9967fa314c488bdb2e103730b278",
+  "UnityEngine.Rendering.Universal.Render2DLightingPass": "c4cbc2d2d710ce84696437385ac8866c",
+  "UnityEngine.Rendering.Universal.RenderGraphSettings": "0cf625ee415e13145960c2d843523d39",
+  "UnityEngine.Rendering.Universal.RenderObjects": "6b3d386ba5cd94485973aee1479b272e",
+  "UnityEngine.Rendering.Universal.RenderObjectsPass": "dbd10d839f22d4127aeb9851dfed8caa",
+  "UnityEngine.Rendering.Universal.RenderTargetHandle": "d7a47b64c248a9448845c28f15c6ca10",
+  "UnityEngine.Rendering.Universal.Renderer2D": "2c8841d47fff7714cb6671d40620dea6",
+  "UnityEngine.Rendering.Universal.Renderer2DData": "11145981673336645838492a2d98e247",
+  "UnityEngine.Rendering.Universal.Renderer2DResources": "8da870822b2d17746b2bd8d494f18787",
+  "UnityEngine.Rendering.Universal.RendererLighting": "7978073cb0cd25f4f8e29b37e3f55d2a",
+  "UnityEngine.Rendering.Universal.RenderingLayerUtils": "9970fa110f6e0904eabc7780d79a96ae",
+  "UnityEngine.Rendering.Universal.RenderingUtils": "c8d90eadb510acd44b7884b0be840c4b",
+  "UnityEngine.Rendering.Universal.ScreenSpaceAmbientOcclusion": "f62c9c65cf3354c93be831c8bc075510",
+  "UnityEngine.Rendering.Universal.ScreenSpaceAmbientOcclusionPass": "2afeda08c4698463daec0f82157e1261",
+  "UnityEngine.Rendering.Universal.ScreenSpaceLensFlare": "06437c1ff663d574d9447842ba0a72e4",
+  "UnityEngine.Rendering.Universal.ScreenSpaceShadows": "e32e72b6a3f58a24c9033e2b9275eea0",
+  "UnityEngine.Rendering.Universal.ScriptableRenderPass": "edba24b6007b9dd41824b4656ed8ebcf",
+  "UnityEngine.Rendering.Universal.ScriptableRenderPass2D": "43645433359a9a8488056103f59e201d",
+  "UnityEngine.Rendering.Universal.ScriptableRenderer": "632a8cfdfaac24d5f99ef36578edd4ed",
+  "UnityEngine.Rendering.Universal.ScriptableRendererData": "56aa82b8bdef84972bf84cf772d3c550",
+  "UnityEngine.Rendering.Universal.ScriptableRendererFeature": "98c74010f62ed40b280474667ca0005e",
+  "UnityEngine.Rendering.Universal.ShaderBitArray": "857b66e359c9249a6b591ad47b966beb",
+  "UnityEngine.Rendering.Universal.ShaderData": "a6c561a6ea5b9c7438624a404f703912",
+  "UnityEngine.Rendering.Universal.ShaderUtils": "a59ed397e0917cd4aa1de2bb1495fead",
+  "UnityEngine.Rendering.Universal.ShadowCaster2D": "7db70e0ea77f5ac47a8f4565a9406397",
+  "UnityEngine.Rendering.Universal.ShadowCasterGroup2D": "dfd932337eaf30646ab42d63eed8f822",
+  "UnityEngine.Rendering.Universal.ShadowCasterGroup2DManager": "9d3c965386a423a4b9b2f6b30ecad735",
+  "UnityEngine.Rendering.Universal.ShadowCulling": "a67c0bc2587298b44bc7bee9f923e8da",
+  "UnityEngine.Rendering.Universal.ShadowEdge": "27e716c92bd24f94a8eb7f5d18240b6d",
+  "UnityEngine.Rendering.Universal.ShadowMesh2D": "995fdaab737f1d14d94e74bd8aee25e4",
+  "UnityEngine.Rendering.Universal.ShadowRendering": "d41cfd0a88e7a024797e86c60a0ff961",
+  "UnityEngine.Rendering.Universal.ShadowShape2D": "7967efc2e5a28854bb33f9b07eee5675",
+  "UnityEngine.Rendering.Universal.ShadowShape2DProvider": "cb2be5655921e3c4c8c8bd8d647227d4",
+  "UnityEngine.Rendering.Universal.ShadowShape2DProvider_SpriteRenderer": "881ec97c8823ab046b7d532464c636f3",
+  "UnityEngine.Rendering.Universal.ShadowShape2DProvider_SpriteShape": "387b120d24fbd4f4294bd52bb2104930",
+  "UnityEngine.Rendering.Universal.ShadowShape2DProvider_SpriteSkin": "b4742283930118c448f26ae5f6d6b52b",
+  "UnityEngine.Rendering.Universal.ShadowUtility": "ed5876db37f0e544c8ef9b9802eff934",
+  "UnityEngine.Rendering.Universal.ShadowUtils": "6f6f9cae14ad81c44ba88bd7a667b0b6",
+  "UnityEngine.Rendering.Universal.ShadowsMidtonesHighlights": "558a8e2b6826cf840aae193990ba9f2e",
+  "UnityEngine.Rendering.Universal.ShapeProviderUtility": "6f14d9931cb70f041af1569642d3b639",
+  "UnityEngine.Rendering.Universal.SingleHistoryBase": "3e5bfeb218ab44b849bf614e7b230a7b",
+  "UnityEngine.Rendering.Universal.SpaceFillingCurves": "cdfd6601120d40acb61c37def5977316",
+  "UnityEngine.Rendering.Universal.SplitToning": "70afe9e12c7a7ed47911bb608a23a8ff",
+  "UnityEngine.Rendering.Universal.StencilCrossFadeRenderPass": "a246c6096818ee346906368fd723c112",
+  "UnityEngine.Rendering.Universal.StpHistory": "9eac74bd55c9f7248a432b8e8725366c",
+  "UnityEngine.Rendering.Universal.StpUtils": "0e5ca08473eaf5a4ba31f382d9f51a4b",
+  "UnityEngine.Rendering.Universal.SurfaceCacheGlobalIlluminationRendererFeature": "8406b95d18054752ac25ef8eb7ac2d41",
+  "UnityEngine.Rendering.Universal.TaaHistory": "787a9a86657542348d1b4e9caece0a0e",
+  "UnityEngine.Rendering.Universal.TemporalAA": "a2a66ab07b41a48198c35aa6c99d354f",
+  "UnityEngine.Rendering.Universal.TileRangeExpansionJob": "a6bc23d6f2eb4e398389d1954b4aafae",
+  "UnityEngine.Rendering.Universal.TilingJob": "b1021b0cb21b45b7b3e8e22788703471",
+  "UnityEngine.Rendering.Universal.Tonemapping": "97c23e3b12dc18c42a140437e53d3951",
+  "UnityEngine.Rendering.Universal.TransparentSettingsPass": "faf05873da6e6fb489aa73a76d780c5a",
+  "UnityEngine.Rendering.Universal.URP2D_GraphicsExtensions": "9d9379906932aeb42948429db294542e",
+  "UnityEngine.Rendering.Universal.URPShaderStrippingSetting": "a2b7f0db433bbf340871ffeb0134a898",
+  "UnityEngine.Rendering.Universal.URPTerrainShaderSetting": "2f5d344954b35bc4faad3771ebd6ccd8",
+  "UnityEngine.Rendering.Universal.UTess.ArraySlice": "7c4381030131b4d4f9da5c475cfa4947",
+  "UnityEngine.Rendering.Universal.UTess.PlanarGraph": "0521711fbb7a45e43b3e062a7efe1aa1",
+  "UnityEngine.Rendering.Universal.UTess.Refinery": "542cbcd8ef188d84fa8697210029eaee",
+  "UnityEngine.Rendering.Universal.UTess.Smoothen": "72dedae474a7e4f42a0ca268fa37b134",
+  "UnityEngine.Rendering.Universal.UTess.Tessellator": "c572724d4b0edff4794668fef3370634",
+  "UnityEngine.Rendering.Universal.Universal2DResourceData": "2c3de1a926cfe8f4697ce0ff97e18ef3",
+  "UnityEngine.Rendering.Universal.UniversalAdditionalCameraData": "a79441f348de89743a2939f4d699eac1",
+  "UnityEngine.Rendering.Universal.UniversalAdditionalLightData": "474bcb49853aa07438625e644c072ee6",
+  "UnityEngine.Rendering.Universal.UniversalCameraData": "e28016542c8e4854a545aa24a49c882e",
+  "UnityEngine.Rendering.Universal.UniversalCameraHistory": "9050ab8b39104cd2950e888654cf80d9",
+  "UnityEngine.Rendering.Universal.UniversalLightData": "fdd7cd5780dc4df69afb5e3c7c41ef8c",
+  "UnityEngine.Rendering.Universal.UniversalPostProcessingData": "154f2df7349f45fa897e03ab12ec09b4",
+  "UnityEngine.Rendering.Universal.UniversalRenderPipeline": "ae13646e45aa3634da32df7c7da1c380",
+  "UnityEngine.Rendering.Universal.UniversalRenderPipelineAsset": "bf2edee5c58d82540a51f03df9d42094",
+  "UnityEngine.Rendering.Universal.UniversalRenderPipelineDebugDisplaySettings": "2792d18b8e6d4d141af28c77268cced7",
+  "UnityEngine.Rendering.Universal.UniversalRenderPipelineDebugDisplayStats": "cd017e26c44959440b65ae797d9d4d90",
+  "UnityEngine.Rendering.Universal.UniversalRenderPipelineDebugShaders": "45c123b2f52a4a13bc290fdd9473d56c",
+  "UnityEngine.Rendering.Universal.UniversalRenderPipelineEditorAssets": "dae808f0fde427b45a0db45f2a9e635b",
+  "UnityEngine.Rendering.Universal.UniversalRenderPipelineEditorMaterials": "b36ba7cbaee8126479c1513e0e95ece8",
+  "UnityEngine.Rendering.Universal.UniversalRenderPipelineEditorResources": "76e49a5b88430df478c504fe5a5c1a62",
+  "UnityEngine.Rendering.Universal.UniversalRenderPipelineEditorShaders": "cf323c9e0e16463488651a133c05e309",
+  "UnityEngine.Rendering.Universal.UniversalRenderPipelineGlobalSettings": "2ec995e51a6e251468d2a3fd8a686257",
+  "UnityEngine.Rendering.Universal.UniversalRenderPipelineRuntimeShaders": "441892941e4fc954694acc03c8d2ef84",
+  "UnityEngine.Rendering.Universal.UniversalRenderPipelineRuntimeTerrainShaders": "958d2de92110a4540b290e308f8b5ac1",
+  "UnityEngine.Rendering.Universal.UniversalRenderPipelineRuntimeTextures": "a8f66a2552f2df24d822f6c0b17834c5",
+  "UnityEngine.Rendering.Universal.UniversalRenderPipelineRuntimeXRResources": "49ced51ad19fca94e8a5a29f28b976f3",
+  "UnityEngine.Rendering.Universal.UniversalRenderPipelineVolumeDebugSettings": "18f50ab9cd0aa054b99d7d539cd829b5",
+  "UnityEngine.Rendering.Universal.UniversalRenderer": "143998ff65f2ada468f04434bfabf8c5",
+  "UnityEngine.Rendering.Universal.UniversalRendererData": "de640fe3d0db1804a85f9fc8f5cadab6",
+  "UnityEngine.Rendering.Universal.UniversalRendererResources": "adfdf969d73c2034da7ea936a8d17053",
+  "UnityEngine.Rendering.Universal.UniversalRenderingData": "4ae95b242bca4cbc9098ad3ca788d0cc",
+  "UnityEngine.Rendering.Universal.UniversalResourceData": "eeb1feab11794b99b3f42243ad341369",
+  "UnityEngine.Rendering.Universal.UniversalShadowData": "85f55bae7fe6496f98478ff084b619ce",
+  "UnityEngine.Rendering.Universal.UpscalePass": "6994c3a2393b6ee4a9b963abd8f7b656",
+  "UnityEngine.Rendering.Universal.Vignette": "899c54efeace73346a0a16faa3afe726",
+  "UnityEngine.Rendering.Universal.VolumeRequiresRendererFeatures": "eee4ea194fc90544da81a52823403b23",
+  "UnityEngine.Rendering.Universal.WhiteBalance": "221518ef91623a7438a71fef23660601",
+  "UnityEngine.Rendering.Universal.XRDepthMotionPass": "56d37d33776d0f44586207d08936dd58",
+  "UnityEngine.Rendering.Universal.XROcclusionMeshPass": "fc46a25201ce7e743bfdca7d07707357",
+  "UnityEngine.Rendering.Universal.XRPassUniversal": "cb8032a4c9fc6be448a89e3426890e21",
+  "UnityEngine.Rendering.Universal.XRSystemData": "307a736764ebbce44b54d72f8467b6fd",
+  "UnityEngine.Rendering.Universal.XRSystemUniversal": "9d476ba138cb60c49a03d544270271d5",
+  "UnityEngine.Rendering.Universal.ZBinningJob": "0ddf10b9a46e641ae8ba73c89b46512c",
+  "UnityEngine.Timeline.ActivationControlPlayable": "d20e4e177b86a2843805dd3894f41b42",
+  "UnityEngine.Timeline.ActivationMixerPlayable": "e165a99d845c10e4ea0f546e542e8684",
+  "UnityEngine.Timeline.ActivationPlayableAsset": "fde0d25a170598d46a0b9dc16b4527a5",
+  "UnityEngine.Timeline.ActivationTrack": "21bf7f712d84d26478ebe6a299f21738",
+  "UnityEngine.Timeline.AnimationOutputWeightProcessor": "a429b38ee9d48c7408c8870baf406034",
+  "UnityEngine.Timeline.AnimationPlayableAsset": "030f85c3f73729f4f976f66ffb23b875",
+  "UnityEngine.Timeline.AnimationPlayableAssetUpgrade": "6773203120b27984d9a8572fa3564f03",
+  "UnityEngine.Timeline.AnimationPreviewUpdateCallback": "755e3e942f7784d458bddba421c0bb72",
+  "UnityEngine.Timeline.AnimationPreviewUtilities": "01da6c5b7c781174d818662ce6f39b8b",
+  "UnityEngine.Timeline.AnimationTrack": "d21dcc2386d650c4597f3633c75a1f98",
+  "UnityEngine.Timeline.AnimationTrackUpgrade": "3b0c53b13a1539949b3b212e049151d1",
+  "UnityEngine.Timeline.AnimatorBindingCache": "d0080567f62c3f94cb75b2927a349e22",
+  "UnityEngine.Timeline.AudioClipProperties": "0d60a406ab64c434e9d731914e11a51e",
+  "UnityEngine.Timeline.AudioMixerProperties": "d8c4a920f001ca64680ed6fdb52d1753",
+  "UnityEngine.Timeline.AudioPlayableAsset": "4f10dd60657c6004587f237a7e90f8e4",
+  "UnityEngine.Timeline.AudioTrack": "8b22792c3b570444eb18cb78c2af3a74",
+  "UnityEngine.Timeline.BlendUtility": "e63c16ba902c4dfeb9fb2e8c105e1347",
+  "UnityEngine.Timeline.ControlPlayableAsset": "48853ae485fa386428341ac1ea122570",
+  "UnityEngine.Timeline.ControlTrack": "15e0374501f39d54eb30235764636e0e",
+  "UnityEngine.Timeline.CurveEditUtility": "e2fcd03f719148d192d0c26cfff47b3c",
+  "UnityEngine.Timeline.CustomSignalEventDrawer": "a7ebd1239373d5f41af65ef32d67f445",
+  "UnityEngine.Timeline.DirectorControlPlayable": "be156cc527d606b4aaac403e9843186e",
+  "UnityEngine.Timeline.DiscreteTime": "8beed9aab74505d488e6befe54c3f6ef",
+  "UnityEngine.Timeline.Extrapolation": "32535dd294c621e4297fba34b15b1c52",
+  "UnityEngine.Timeline.FrameRate": "0949a3b7ed32e8744a07b31328a66567",
+  "UnityEngine.Timeline.GroupTrack": "d0fc6f5187a81dc47999eefade6f0935",
+  "UnityEngine.Timeline.HashUtility": "d0ca7b2e84542bf4ab9987087e8d79ad",
+  "UnityEngine.Timeline.InfiniteRuntimeClip": "9b5abcb38bac0c54794ad732a3fa0de3",
+  "UnityEngine.Timeline.IntervalTree": "8f74c99a65464bb4b86ccb314ee95a7f",
+  "UnityEngine.Timeline.Marker": "89b48a03f6f43e94e87cc8d2104d3d4d",
+  "UnityEngine.Timeline.MarkerList": "4335a164bb763104c8805212c23d795f",
+  "UnityEngine.Timeline.MarkerTrack": "2a16748d9461eae46a725db9776d5390",
+  "UnityEngine.Timeline.NotificationUtilities": "b90311a8f07b00f4bbeb2fff3b128d25",
+  "UnityEngine.Timeline.ObjectId": "abd179dbd4724b4b928b9777e1deca87",
+  "UnityEngine.Timeline.ParticleControlPlayable": "f603edd7163537f44927ad2808147a25",
+  "UnityEngine.Timeline.PlayableTrack": "82cd92ffc29383742932b27ca414c80f",
+  "UnityEngine.Timeline.PrefabControlPlayable": "439c018cf4619e94d9a92110ce0aa188",
+  "UnityEngine.Timeline.RuntimeClip": "70a190a1b304d1e43995af35d09231d6",
+  "UnityEngine.Timeline.RuntimeClipBase": "70f955bbb437a494888ef54d97abb474",
+  "UnityEngine.Timeline.RuntimeElement": "76b6bf32a6fcf934aab8c529bddccc81",
+  "UnityEngine.Timeline.ScheduleRuntimeClip": "b250be9db55288b48ac121c074d795e6",
+  "UnityEngine.Timeline.SelectionExtensions": "dac68f98afe146e2b31f6a0ee222ef79",
+  "UnityEngine.Timeline.SignalAsset": "d6fa2d92fc1b3f34da284357edf89c3b",
+  "UnityEngine.Timeline.SignalEmitter": "15c38f6fa1940124db1ab7f6fe7268d1",
+  "UnityEngine.Timeline.SignalReceiver": "e52de21a22b6dd44c9cc19f810c65059",
+  "UnityEngine.Timeline.SignalTrack": "b46e36075dd1c124a8422c228e75e1fb",
+  "UnityEngine.Timeline.TimeControlPlayable": "1db879070d9a45f4c86cdf5e59616df5",
+  "UnityEngine.Timeline.TimeNotificationBehaviour": "afeb55855d7a63b45ba6f8bd97599202",
+  "UnityEngine.Timeline.TimeUtility": "f779e779d62b5ca49b658236c337845d",
+  "UnityEngine.Timeline.TimelineAsset": "bfda56da833e2384a9677cd3c976a436",
+  "UnityEngine.Timeline.TimelineClip": "65f3a4c67e4927a478b7036bae1da0e3",
+  "UnityEngine.Timeline.TimelineClipExtensions": "7a02f7efcd3e4f3baa0079e620bddbd7",
+  "UnityEngine.Timeline.TimelineCreateUtilities": "40cb137d0e9816e48a4141ed13afedad",
+  "UnityEngine.Timeline.TimelineHelpURLAttribute": "c35b6ea5f1d7cd74eac79413eb70670c",
+  "UnityEngine.Timeline.TimelinePlayable": "80b10e1c58509a449a3c5aecc07d4455",
+  "UnityEngine.Timeline.TimelineUndo": "1f2a7e0d1b6bbba408a41e206945c23c",
+  "UnityEngine.Timeline.TrackAsset": "3ad53269c7421084ab67f804591994e0",
+  "UnityEngine.Timeline.TrackColorAttribute": "6c3d52cc5c46d7946a920e21901ff38e",
+  "UnityEngine.Timeline.WeightUtility": "e7a505b341283e14696e86433a5b1ae9",
+  "UnityEngine.UI.AnimationTriggers": "c67ac6e40bbb6fe47a095b949b609ce0",
+  "UnityEngine.UI.AspectRatioFitter": "86710e43de46f6f4bac7c8e50813a599",
+  "UnityEngine.UI.BaseMeshEffect": "718966f960cb50643986195e5fe953ca",
+  "UnityEngine.UI.Button": "4e29b1a8efbd4b44bb3f3716e73f07ff",
+  "UnityEngine.UI.CanvasScaler": "0cd44c1031e13a943bb63640046fad76",
+  "UnityEngine.UI.CanvasUpdateRegistry": "bfb788a43e03363419155b8af77da971",
+  "UnityEngine.UI.ClipperRegistry": "9f1026265f8e3d54fb6e9f082c43debf",
+  "UnityEngine.UI.Clipping": "67e3583b91179094094c6a188b232262",
+  "UnityEngine.UI.Collections.IndexedSet": "a8604e8f13b3be84b8bc0c1507d8f3f6",
+  "UnityEngine.UI.ColorBlock": "83088ba2132cbc940b7ca0c679a02b0d",
+  "UnityEngine.UI.ContentSizeFitter": "3245ec927659c4140ac4f8d17403cc18",
+  "UnityEngine.UI.DefaultControls": "bf87e20fb5440ec498f441167b5291f8",
+  "UnityEngine.UI.Dropdown": "0d0b652f32a2cc243917e4028fa0f046",
+  "UnityEngine.UI.FontData": "13cd966480ec3354bb318ee1aeccff6f",
+  "UnityEngine.UI.FontUpdateTracker": "39ab466162988eb4f83443f911bbf5c8",
+  "UnityEngine.UI.Graphic": "a6238e9452bfc704f82ff36791fe1a45",
+  "UnityEngine.UI.GraphicRaycaster": "dc42784cf147c0c48a680349fa168899",
+  "UnityEngine.UI.GraphicRebuildTracker": "445cdcfc747eba94288b97f5869aa2fb",
+  "UnityEngine.UI.GraphicRegistry": "69e3979b7029e8a4da2d96b714ba5c3a",
+  "UnityEngine.UI.GridLayoutGroup": "8a8695521f0d02e499659fee002a26c2",
+  "UnityEngine.UI.HorizontalLayoutGroup": "30649d3a9faa99c48a7b1166b86bf2a0",
+  "UnityEngine.UI.HorizontalOrVerticalLayoutGroup": "a5c214e5846a99242b348c37e49b2f59",
+  "UnityEngine.UI.Image": "fe87c0e1cc204ed48ad3b37840f39efc",
+  "UnityEngine.UI.InputField": "d199490a83bb2b844b9695cbf13b01ef",
+  "UnityEngine.UI.LayoutElement": "306cc8c2b49d7114eaa3623786fc2126",
+  "UnityEngine.UI.LayoutGroup": "cb7c939a806f03341b682c180dc13f08",
+  "UnityEngine.UI.LayoutRebuilder": "006633c8a6f4ae94aa9babf72234e1a2",
+  "UnityEngine.UI.LayoutUtility": "82bf3f737dec0be43a60891958a8da87",
+  "UnityEngine.UI.Mask": "31a19414c41e5ae4aae2af33fee712f6",
+  "UnityEngine.UI.MaskUtilities": "7bd96d76711152648a736c4d28d865f2",
+  "UnityEngine.UI.MaskableGraphic": "976acc75bfafe594cb01142ba21947be",
+  "UnityEngine.UI.Misc": "828075bc53f2de84982a943870529b7b",
+  "UnityEngine.UI.MultipleDisplayUtilities": "5ebeb75bd91642048bb3f6c1939fde66",
+  "UnityEngine.UI.Navigation": "61d491d99e9292c4a81d7d01a74781ea",
+  "UnityEngine.UI.Outline": "e19747de3f5aca642ab2be37e372fb86",
+  "UnityEngine.UI.PositionAsUV1": "020ee4c1798a3d243a4b8cbfee6cac2d",
+  "UnityEngine.UI.RawImage": "1344c3c82d62a2a41a3576d8abb8e3ea",
+  "UnityEngine.UI.RectMask2D": "3312d7739989d2b4e91e6319e9a96d76",
+  "UnityEngine.UI.RectangularVertexClipper": "c606041f02fc7d542b1429806872292b",
+  "UnityEngine.UI.ReflectionMethodsCache": "fcae021c30eccf74790a4e816ba97c19",
+  "UnityEngine.UI.ScrollRect": "1aa08ab6e0800fa44ae55d278d1423e3",
+  "UnityEngine.UI.Scrollbar": "2a4db7a114972834c8e4117be1d82ba3",
+  "UnityEngine.UI.Selectable": "7a98125502f715b4b83cfb77b434e436",
+  "UnityEngine.UI.SetPropertyUtility": "b9ba34e0b1884454fbc4257260e22b64",
+  "UnityEngine.UI.Shadow": "cfabb0440166ab443bba8876756fdfa9",
+  "UnityEngine.UI.Slider": "67db9e8f0e2ae9c40bc1e2b64352a6b4",
+  "UnityEngine.UI.SpriteState": "25b01819c6e1649428db2a9b274cf364",
+  "UnityEngine.UI.StencilMaterial": "69ae55f76840b2849ba56cfb53a17df0",
+  "UnityEngine.UI.Text": "5f7201a12d95ffc409449d95f23cf332",
+  "UnityEngine.UI.Toggle": "9085046f02f69544eb97fd06b6048fe2",
+  "UnityEngine.UI.ToggleGroup": "2fafe2cfe61f6974895a912c3755e8f1",
+  "UnityEngine.UI.VertexHelper": "c459424081436584c8cec10767f9ac38",
+  "UnityEngine.UI.VerticalLayoutGroup": "59f8146938fff824cb5fd77236b75775",
+  "UnityEngine.UIElements.PanelEventHandler": "8a410b213209442fb15a69799f0240a5",
+  "UnityEngine.UIElements.PanelRaycaster": "7a79c4e23d4d4b64bfa5fa9e6671a460",
+  "UnityEngine.UIElements.UIToolkitInteroperabilityBridge": "ba923e2b58fea044bb1f8839376a1118",
+  "UnityEngine.UIElements.WorldDocumentRaycaster": "2c727e4c005e5114fb3348a38c4cebbf",
+  "UnityEngine.VFX.Utility.URPCameraBinder": "5c847e0daeb638146931797574071502",
+  "VertexDictionary": "861a5dbe0501bf64e90daafd28655f4e"
+ },
+ "shaders": {
+  "2D/RenderAs2D-Flattening": "74659692f6350ba46b88180d9c826630",
+  "OnTileUberPost": "fe4f13c1004a07d4ea1e30bfd0326d9e",
+  "Spine/Blend Modes/Skeleton PMA Additive": "53efa1d97f5d9f74285d4330cda14e36",
+  "Spine/Blend Modes/Skeleton PMA Multiply": "8bdcdc7ee298e594a9c20c61d25c33b6",
+  "Spine/Blend Modes/Skeleton PMA Screen": "4e8caa36c07aacf4ab270da00784e4d9",
+  "Spine/Outline/Blend Modes/Skeleton PMA Additive": "0299ffae826705448b6c80ccc6a53b75",
+  "Spine/Outline/Blend Modes/Skeleton PMA Multiply": "4b3566a937643b8498d1ec6df5880b77",
+  "Spine/Outline/Blend Modes/Skeleton PMA Screen": "e61a8d94e453ff641a7e39c4b11cac95",
+  "Spine/Outline/OutlineOnly-ZWrite": "177da18c3d2e0aa4cb39990ea011973c",
+  "Spine/Outline/Skeleton": "28b5cf4804845fe4b868531fd0bb81d5",
+  "Spine/Outline/Skeleton Fill": "e158cbe58baa093438feb3d691f3daba",
+  "Spine/Outline/Skeleton Lit": "10fab3f69a099be4391fe8a1ad880c65",
+  "Spine/Outline/Skeleton Lit ZWrite": "756be4f2f738f6c4583bb1c90e16bf0b",
+  "Spine/Outline/Skeleton Tint": "4f1fdc166fed03649835949d3b79cba3",
+  "Spine/Outline/Skeleton Tint Black": "49cf725a1e40e7742be92917f83946c3",
+  "Spine/Outline/SkeletonGraphic": "8f5d14d2a7fedb84998c50eb96c8b748",
+  "Spine/Outline/SkeletonGraphic Tint Black": "d55d64dd09c46af40a319933a62fa1b2",
+  "Spine/Outline/Special/Skeleton Grayscale": "1d3e1518ae643a749b086bc7972893d2",
+  "Spine/Outline/Sprite/Pixel Lit": "a27d4b27c8ecd9840a03558ccc5ad8a3",
+  "Spine/Outline/Sprite/Unlit": "276c07e3bdd5719458187a5823e9d96a",
+  "Spine/Outline/Sprite/Vertex Lit": "30ef5dd318033004588a6481c092416a",
+  "Spine/Skeleton": "1e8a610c9e01c3648bac42585e5fc676",
+  "Spine/Skeleton Fill": "45495790b394f894a967dbf44489b57b",
+  "Spine/Skeleton Lit": "bd83c75f51f5e23498ae22ffcdfe92c3",
+  "Spine/Skeleton Lit ZWrite": "fde05abf1f7be4b4da1caf8c8de1823a",
+  "Spine/Skeleton Tint": "522f03282fd79be47b306e2ef4b593fd",
+  "Spine/Skeleton Tint Black": "deee23ab4aa38564ead2ac05e112c169",
+  "Spine/SkeletonGraphic": "fa95b0fb6983c0f40a152e6f9aa82bfb",
+  "Spine/SkeletonGraphic Additive": "a1e4ab34b07f81e4e94f0d241c416669",
+  "Spine/SkeletonGraphic Fill": "c02377d9afbb50e49ab27049e59fb5f8",
+  "Spine/SkeletonGraphic Grayscale": "81eed00979b4e554cb3022dc0b83b517",
+  "Spine/SkeletonGraphic Multiply": "cfbf95ed0fe6c554c8c2ee6c8325937c",
+  "Spine/SkeletonGraphic Screen": "c61244023592f95479fddd71b5067683",
+  "Spine/SkeletonGraphic Tint Black": "f64c7bc238bb2c246b8ca1912b2b6b9c",
+  "Spine/SkeletonGraphic Tint Black Additive": "1d081289ec7074140a6b96982be27e02",
+  "Spine/SkeletonGraphic Tint Black Multiply": "d006d50db496cce459741dc6689e2662",
+  "Spine/SkeletonGraphic Tint Black Screen": "7cb5b7d45d2ae2847970ba2e30fdc597",
+  "Spine/Special/HiddenPass": "913475501bf19374c84390868a9d6d3d",
+  "Spine/Special/Skeleton Grayscale": "ea7e7c05f36541b4bb280f98ebda8ba1",
+  "Spine/Sprite/Pixel Lit": "6f7a5a97a82637f478494bc40ea8c8a2",
+  "Spine/Sprite/Unlit": "64005298b9a80bb4899eabd5140dc4a8",
+  "Spine/Sprite/Vertex Lit": "2ce511398fb980f41b7d316c51534590",
+  "TextMeshPro/Bitmap": "128e987d567d4e2c824d754223b3f3b0",
+  "TextMeshPro/Bitmap Custom Atlas": "48bb5f55d8670e349b6e614913f9d910",
+  "TextMeshPro/Distance Field": "68e6db2ebdc24f95958faec2be5558d6",
+  "TextMeshPro/Distance Field (Surface)": "f7ada0af4f174f0694ca6a487b8f543d",
+  "TextMeshPro/Distance Field Overlay": "dd89cf5b9246416f84610a006f916af7",
+  "TextMeshPro/Distance Field SSD": "14eb328de4b8eb245bb7cea29e4ac00b",
+  "TextMeshPro/Mobile/Bitmap": "1e3b057af24249748ff873be7fafee47",
+  "TextMeshPro/Mobile/Distance Field": "fe393ace9b354375a9cb14cdbbc28be4",
+  "TextMeshPro/Mobile/Distance Field (Surface)": "85187c2149c549c5b33f0cdb02836b17",
+  "TextMeshPro/Mobile/Distance Field - 2 Pass": "0178fcb869bafef4690d177d31d17db8",
+  "TextMeshPro/Mobile/Distance Field - Masking": "bc1ede39bf3643ee8e493720e4259791",
+  "TextMeshPro/Mobile/Distance Field Overlay": "a02a7d8c237544f1962732b55a9aebf1",
+  "TextMeshPro/Mobile/Distance Field SSD": "c8d12adcee749c344b8117cf7c7eb912",
+  "TextMeshPro/Sprite": "cf81c85f95fe47e1a27f6ae460cf182c",
+  "Universal Render Pipeline/2D/Mesh2D-Lit-Default": "4e90a8289da1f3943885176e4f83e35c",
+  "Universal Render Pipeline/2D/Mesh2D-Unlit-Default": "8c3bb6de0c0e7c047b65c077249507e5",
+  "Universal Render Pipeline/2D/Sprite-Lit-Default": "e260cfa7296ee7642b167f1eb5be5023",
+  "Universal Render Pipeline/2D/Sprite-Mask": "e39bd598ce13f44ba8af997d3e42cd18",
+  "Universal Render Pipeline/2D/Sprite-Unlit-Default": "13c02b14c4d048fa9653293d54f6e0e1",
+  "Universal Render Pipeline/Baked Lit": "0ca6dca7396eb48e5849247ffd444914",
+  "Universal Render Pipeline/Complex Lit": "ee7e4c9a5f6364b688a332c67fc32cca",
+  "Universal Render Pipeline/Lit": "933532a4fcc9baf4fa0491de14d08ed7",
+  "Universal Render Pipeline/Nature/SpeedTree7": "0f4122b9a743b744abe2fb6a0a88868b",
+  "Universal Render Pipeline/Nature/SpeedTree7 Billboard": "5ec81c81908db34429b4f6ddecadd3bd",
+  "Universal Render Pipeline/Nature/SpeedTree8": "99134b1f0c27d54469a840832a28fadf",
+  "Universal Render Pipeline/Particles/Lit": "b7839dad95683814aa64166edc107ae2",
+  "Universal Render Pipeline/Particles/Simple Lit": "8516d7a69675844a7a0b7095af7c46af",
+  "Universal Render Pipeline/Particles/Unlit": "0406db5a14f94604a8c57ccfbc9f3b46",
+  "Universal Render Pipeline/Simple Lit": "8d2bb70cbf9db8d4da26e15b26e74248",
+  "Universal Render Pipeline/Terrain/Lit": "69c1f799e772cb6438f56c23efccb782",
+  "Universal Render Pipeline/Unlit": "650dd9526735d5b46b79224bc6e94025",
+  "Universal Render Pipeline/VR/SpatialMapping/Occlusion": "60e10855641b4d84da68ec72e6f6eeb8",
+  "Universal Render Pipeline/VR/SpatialMapping/Wireframe": "e8b802ac01d87144b91f12f40c1f2659"
+ },
+ "assets": {
+  "TextMesh Pro/Fonts/LiberationSans - OFL.txt": "6e59c59b81ab47f9b6ec5781fa725d2c",
+  "TextMesh Pro/Fonts/LiberationSans.ttf": "e3265ab4bf004d28a9537516768c1c75",
+  "TextMesh Pro/Resources/Fonts & Materials/LiberationSans SDF - Drop Shadow.mat": "e73a58f6e2794ae7b1b7e50b7fb811b0",
+  "TextMesh Pro/Resources/Fonts & Materials/LiberationSans SDF - Fallback.asset": "2e498d1c8094910479dc3e1b768306a4",
+  "TextMesh Pro/Resources/Fonts & Materials/LiberationSans SDF - Outline.mat": "79459efec17a4d00a321bdcc27bbc385",
+  "TextMesh Pro/Resources/Fonts & Materials/LiberationSans SDF.asset": "8f586378b4e144a9851e7b34d9b748ee",
+  "TextMesh Pro/Resources/LineBreaking Following Characters.txt": "fade42e8bc714b018fac513c043d323b",
+  "TextMesh Pro/Resources/LineBreaking Leading Characters.txt": "d82c1b31c7e74239bff1220585707d2b",
+  "TextMesh Pro/Resources/Sprite Assets/EmojiOne.asset": "c41005c129ba4d66911b75229fd70b45",
+  "TextMesh Pro/Resources/Style Sheets/Default Style Sheet.asset": "f952c082cb03451daed3ee968ac6c63e",
+  "TextMesh Pro/Resources/TMP Settings.asset": "3f5b5dff67a942289a9defa416b206f3",
+  "TextMesh Pro/Shaders/TMP_Bitmap-Custom-Atlas.shader": "48bb5f55d8670e349b6e614913f9d910",
+  "TextMesh Pro/Shaders/TMP_Bitmap-Mobile.shader": "1e3b057af24249748ff873be7fafee47",
+  "TextMesh Pro/Shaders/TMP_Bitmap.shader": "128e987d567d4e2c824d754223b3f3b0",
+  "TextMesh Pro/Shaders/TMP_SDF Overlay.shader": "dd89cf5b9246416f84610a006f916af7",
+  "TextMesh Pro/Shaders/TMP_SDF SSD.shader": "14eb328de4b8eb245bb7cea29e4ac00b",
+  "TextMesh Pro/Shaders/TMP_SDF-Mobile Masking.shader": "bc1ede39bf3643ee8e493720e4259791",
+  "TextMesh Pro/Shaders/TMP_SDF-Mobile Overlay.shader": "a02a7d8c237544f1962732b55a9aebf1",
+  "TextMesh Pro/Shaders/TMP_SDF-Mobile SSD.shader": "c8d12adcee749c344b8117cf7c7eb912",
+  "TextMesh Pro/Shaders/TMP_SDF-Mobile-2-Pass.shader": "0178fcb869bafef4690d177d31d17db8",
+  "TextMesh Pro/Shaders/TMP_SDF-Mobile.shader": "fe393ace9b354375a9cb14cdbbc28be4",
+  "TextMesh Pro/Shaders/TMP_SDF-Surface-Mobile.shader": "85187c2149c549c5b33f0cdb02836b17",
+  "TextMesh Pro/Shaders/TMP_SDF-Surface.shader": "f7ada0af4f174f0694ca6a487b8f543d",
+  "TextMesh Pro/Shaders/TMP_SDF.shader": "68e6db2ebdc24f95958faec2be5558d6",
+  "TextMesh Pro/Shaders/TMP_Sprite.shader": "cf81c85f95fe47e1a27f6ae460cf182c",
+  "TextMesh Pro/Sprites/EmojiOne Attribution.txt": "381dcb09d5029d14897e55f98031fca5",
+  "TextMesh Pro/Sprites/EmojiOne.json": "8f05276190cf498a8153f6cbe761d4e6",
+  "TextMesh Pro/Sprites/EmojiOne.png": "dffef66376be4fa480fb02b19edbe903"
+ },
+ "sources": [
+  "Cooking4-Cook4-update-model/Assets/Plugins/Demigiant",
+  "Cooking4-Cook4-update-model/Assets/TextMesh Pro",
+  "Cooking4-Cooking2-baseVer114-build-dev/Assets/Plugins/Demigiant",
+  "Cooking4-Cooking2-baseVer114-build-dev/Assets/TextMesh Pro",
+  "FruitSalon/Assets/Plugins/Demigiant",
+  "FruitSalon/Assets/TextMesh Pro",
+  "Minigame3/Assets/Plugins/Demigiant",
+  "Minigame3/Assets/Spine",
+  "Minigame3/Assets/TextMesh Pro",
+  "RushExtreme-Kien-Car/Assets/TextMesh Pro",
+  "RushExtreme/Assets/TextMesh Pro",
+  "com.coffee.softmask-for-ugui@58ad0a2f07d2",
+  "com.esotericsoftware.spine.spine-unity@0e7af0dfde8c",
+  "com.esotericsoftware.spine.spine-unity@b81e5a58ed",
+  "com.unity.2d.sprite@1.0.0",
+  "com.unity.2d.sprite@d14b9d497a24",
+  "com.unity.2d.tilemap@f011712243ad",
+  "com.unity.cinemachine@2.10.3",
+  "com.unity.cinemachine@285f38545487",
+  "com.unity.cinemachine@3.1.6",
+  "com.unity.render-pipelines.universal@14.0.12",
+  "com.unity.render-pipelines.universal@7327e77c1cc2",
+  "com.unity.textmeshpro@3.0.7",
+  "com.unity.timeline@1.7.7",
+  "com.unity.timeline@bfd27f8016ff",
+  "com.unity.ugui@1.0.0",
+  "com.unity.ugui@bb329a87fcdc"
+ ],
+ "builtin": {
+  "shaders": {
+   "GUI/Text Shader": [
+    10101,
+    "e"
+   ],
+   "Standard (Specular setup)": [
+    45,
+    "f"
+   ],
+   "Standard": [
+    46,
+    "f"
+   ],
+   "Autodesk Interactive": [
+    47,
+    "f"
+   ],
+   "Legacy Shaders/VertexLit": [
+    6,
+    "f"
+   ],
+   "Legacy Shaders/Diffuse Fast": [
+    1,
+    "f"
+   ],
+   "Legacy Shaders/Diffuse": [
+    7,
+    "f"
+   ],
+   "Legacy Shaders/Bumped Diffuse": [
+    2,
+    "f"
+   ],
+   "Legacy Shaders/Specular": [
+    3,
+    "f"
+   ],
+   "Legacy Shaders/Bumped Specular": [
+    4,
+    "f"
+   ],
+   "Legacy Shaders/Diffuse Detail": [
+    5,
+    "f"
+   ],
+   "Legacy Shaders/Self-Illumin/VertexLit": [
+    14,
+    "f"
+   ],
+   "Legacy Shaders/Self-Illumin/Diffuse": [
+    10,
+    "f"
+   ],
+   "Legacy Shaders/Self-Illumin/Bumped Diffuse": [
+    11,
+    "f"
+   ],
+   "Legacy Shaders/Self-Illumin/Specular": [
+    12,
+    "f"
+   ],
+   "Legacy Shaders/Self-Illumin/Bumped Specular": [
+    13,
+    "f"
+   ],
+   "Legacy Shaders/Reflective/VertexLit": [
+    24,
+    "f"
+   ],
+   "Legacy Shaders/Reflective/Bumped Unlit": [
+    25,
+    "f"
+   ],
+   "Legacy Shaders/Reflective/Diffuse": [
+    20,
+    "f"
+   ],
+   "Legacy Shaders/Reflective/Bumped Diffuse": [
+    21,
+    "f"
+   ],
+   "Legacy Shaders/Reflective/Bumped VertexLit": [
+    26,
+    "f"
+   ],
+   "Legacy Shaders/Reflective/Specular": [
+    22,
+    "f"
+   ],
+   "Legacy Shaders/Reflective/Bumped Specular": [
+    23,
+    "f"
+   ],
+   "Legacy Shaders/Transparent/VertexLit": [
+    34,
+    "f"
+   ],
+   "Legacy Shaders/Transparent/Diffuse": [
+    30,
+    "f"
+   ],
+   "Legacy Shaders/Transparent/Bumped Diffuse": [
+    31,
+    "f"
+   ],
+   "Legacy Shaders/Transparent/Specular": [
+    32,
+    "f"
+   ],
+   "Legacy Shaders/Transparent/Bumped Specular": [
+    33,
+    "f"
+   ],
+   "Legacy Shaders/Transparent/Cutout/VertexLit": [
+    50,
+    "f"
+   ],
+   "Legacy Shaders/Transparent/Cutout/Diffuse": [
+    51,
+    "f"
+   ],
+   "Legacy Shaders/Transparent/Cutout/Bumped Diffuse": [
+    52,
+    "f"
+   ],
+   "Legacy Shaders/Transparent/Cutout/Specular": [
+    53,
+    "f"
+   ],
+   "Legacy Shaders/Transparent/Cutout/Bumped Specular": [
+    54,
+    "f"
+   ],
+   "Legacy Shaders/Parallax Diffuse": [
+    8,
+    "f"
+   ],
+   "Legacy Shaders/Parallax Specular": [
+    9,
+    "f"
+   ],
+   "Legacy Shaders/Self-Illumin/Parallax Diffuse": [
+    15,
+    "f"
+   ],
+   "Legacy Shaders/Self-Illumin/Parallax Specular": [
+    16,
+    "f"
+   ],
+   "Legacy Shaders/Reflective/Parallax Diffuse": [
+    27,
+    "f"
+   ],
+   "Legacy Shaders/Reflective/Parallax Specular": [
+    28,
+    "f"
+   ],
+   "Legacy Shaders/Transparent/Parallax Diffuse": [
+    35,
+    "f"
+   ],
+   "Legacy Shaders/Transparent/Parallax Specular": [
+    36,
+    "f"
+   ],
+   "Legacy Shaders/Transparent/Cutout/Soft Edge Unlit": [
+    10512,
+    "f"
+   ],
+   "Legacy Shaders/Decal": [
+    100,
+    "f"
+   ],
+   "FX/Flare": [
+    101,
+    "f"
+   ],
+   "Skybox/Cubemap": [
+    103,
+    "f"
+   ],
+   "Skybox/6 Sided": [
+    104,
+    "f"
+   ],
+   "Skybox/Procedural": [
+    106,
+    "f"
+   ],
+   "Skybox/Panoramic": [
+    108,
+    "f"
+   ],
+   "Legacy Shaders/Particles/Additive": [
+    200,
+    "f"
+   ],
+   "Legacy Shaders/Particles/~Additive-Multiply": [
+    201,
+    "f"
+   ],
+   "Legacy Shaders/Particles/Additive (Soft)": [
+    202,
+    "f"
+   ],
+   "Legacy Shaders/Particles/Alpha Blended": [
+    203,
+    "f"
+   ],
+   "Legacy Shaders/Particles/Multiply": [
+    205,
+    "f"
+   ],
+   "Legacy Shaders/Particles/Multiply (Double)": [
+    206,
+    "f"
+   ],
+   "Legacy Shaders/Particles/Alpha Blended Premultiply": [
+    207,
+    "f"
+   ],
+   "Legacy Shaders/Particles/VertexLit Blended": [
+    208,
+    "f"
+   ],
+   "Legacy Shaders/Particles/Anim Alpha Blended": [
+    209,
+    "f"
+   ],
+   "Particles/Standard Surface": [
+    210,
+    "f"
+   ],
+   "Particles/Standard Unlit": [
+    211,
+    "f"
+   ],
+   "Sprites/Diffuse": [
+    10800,
+    "f"
+   ],
+   "Nature/Terrain/Diffuse": [
+    10505,
+    "f"
+   ],
+   "Legacy Shaders/Lightmapped/VertexLit": [
+    40,
+    "f"
+   ],
+   "Legacy Shaders/Lightmapped/Diffuse": [
+    41,
+    "f"
+   ],
+   "Legacy Shaders/Lightmapped/Bumped Diffuse": [
+    42,
+    "f"
+   ],
+   "Legacy Shaders/Lightmapped/Specular": [
+    43,
+    "f"
+   ],
+   "Legacy Shaders/Lightmapped/Bumped Specular": [
+    44,
+    "f"
+   ],
+   "Nature/Tree Soft Occlusion Bark": [
+    10509,
+    "f"
+   ],
+   "Nature/Tree Soft Occlusion Leaves": [
+    10511,
+    "f"
+   ],
+   "Nature/Tree Creator Bark": [
+    10600,
+    "f"
+   ],
+   "Nature/Tree Creator Leaves": [
+    10601,
+    "f"
+   ],
+   "Nature/Tree Creator Leaves Fast": [
+    10606,
+    "f"
+   ],
+   "Nature/Terrain/Specular": [
+    10620,
+    "f"
+   ],
+   "Nature/Terrain/Standard": [
+    10623,
+    "f"
+   ],
+   "Mobile/Skybox": [
+    10700,
+    "f"
+   ],
+   "Mobile/VertexLit": [
+    10701,
+    "f"
+   ],
+   "Mobile/Diffuse": [
+    10703,
+    "f"
+   ],
+   "Mobile/Bumped Diffuse": [
+    10704,
+    "f"
+   ],
+   "Mobile/Bumped Specular": [
+    10705,
+    "f"
+   ],
+   "Mobile/Bumped Specular (1 Directional Realtime Light)": [
+    10706,
+    "f"
+   ],
+   "Mobile/VertexLit (Only Directional Lights)": [
+    10707,
+    "f"
+   ],
+   "Mobile/Unlit (Supports Lightmap)": [
+    10708,
+    "f"
+   ],
+   "Mobile/Particles/Additive": [
+    10720,
+    "f"
+   ],
+   "Mobile/Particles/Alpha Blended": [
+    10721,
+    "f"
+   ],
+   "Mobile/Particles/VertexLit Blended": [
+    10722,
+    "f"
+   ],
+   "Mobile/Particles/Multiply": [
+    10723,
+    "f"
+   ],
+   "Unlit/Transparent": [
+    10750,
+    "f"
+   ],
+   "Unlit/Transparent Cutout": [
+    10751,
+    "f"
+   ],
+   "Unlit/Texture": [
+    10752,
+    "f"
+   ],
+   "Sprites/Default": [
+    10753,
+    "f"
+   ],
+   "Unlit/Color": [
+    10755,
+    "f"
+   ],
+   "Sprites/Mask": [
+    10757,
+    "f"
+   ],
+   "UI/Unlit/Transparent": [
+    10760,
+    "f"
+   ],
+   "UI/Unlit/Detail": [
+    10761,
+    "f"
+   ],
+   "UI/Unlit/Text": [
+    10762,
+    "f"
+   ],
+   "UI/Unlit/Text Detail": [
+    10763,
+    "f"
+   ],
+   "UI/Lit/Transparent": [
+    10764,
+    "f"
+   ],
+   "UI/Lit/Bumped": [
+    10765,
+    "f"
+   ],
+   "UI/Lit/Detail": [
+    10766,
+    "f"
+   ],
+   "UI/Lit/Refraction": [
+    10767,
+    "f"
+   ],
+   "UI/Lit/Refraction Detail": [
+    10768,
+    "f"
+   ],
+   "UI/Default": [
+    10770,
+    "f"
+   ],
+   "UI/Default Font": [
+    10782,
+    "f"
+   ],
+   "UI/DefaultETC1": [
+    10783,
+    "f"
+   ],
+   "Nature/SpeedTree": [
+    14000,
+    "f"
+   ],
+   "Nature/SpeedTree Billboard": [
+    14001,
+    "f"
+   ],
+   "Nature/SpeedTree8": [
+    14002,
+    "f"
+   ],
+   "VR/SpatialMapping/Occlusion": [
+    15300,
+    "f"
+   ],
+   "VR/SpatialMapping/Wireframe": [
+    15301,
+    "f"
+   ]
+  },
+  "meshes": {
+   "Cube": [
+    10202,
+    "e"
+   ],
+   "Sphere": [
+    10207,
+    "e"
+   ],
+   "Capsule": [
+    10208,
+    "e"
+   ],
+   "Cylinder": [
+    10206,
+    "e"
+   ],
+   "Plane": [
+    10209,
+    "e"
+   ],
+   "Quad": [
+    10210,
+    "e"
+   ]
+  },
+  "materials": {
+   "Default-Material": [
+    10303,
+    "f"
+   ],
+   "Sprites-Default": [
+    10754,
+    "f"
+   ],
+   "Default-Skybox": [
+    10304,
+    "f"
+   ],
+   "Default-Particle": [
+    10301,
+    "f"
+   ],
+   "Default-ParticleSystem": [
+    10308,
+    "f"
+   ],
+   "Default-Line": [
+    10306,
+    "f"
+   ],
+   "Default-Diffuse": [
+    10302,
+    "f"
+   ],
+   "Sprites-Mask": [
+    10758,
+    "f"
+   ],
+   "Default-Terrain-Standard": [
+    10652,
+    "f"
+   ]
+  },
+  "sprites": {
+   "UISprite": [
+    10905,
+    "f"
+   ],
+   "Background": [
+    10907,
+    "f"
+   ],
+   "Knob": [
+    10913,
+    "f"
+   ],
+   "Checkmark": [
+    10901,
+    "f"
+   ],
+   "InputFieldBackground": [
+    10911,
+    "f"
+   ],
+   "DropdownArrow": [
+    10915,
+    "f"
+   ],
+   "UIMask": [
+    10917,
+    "f"
+   ]
+  },
+  "fonts": {
+   "LegacyRuntime": [
+    10102,
+    "e"
+   ]
+  },
+  "textures": {
+   "Default-Particle": [
+    10300,
+    "f"
+   ],
+   "Default-ParticleSystem": [
+    10307,
+    "f"
+   ]
+  }
+ },
+ "dllScripts": {
+  "DG.DemiLib.External.DeHierarchyComponent": [
+   "54be29b67d0d29a478da2c6e5c62f091",
+   -824149173
+  ],
+  "DG.Tweening.Core.ABSAnimationComponent": [
+   "aa0b1eebb5db27a419fa4564bbe5c9c5",
+   -700249989
+  ],
+  "DG.Tweening.Core.DOTweenComponent": [
+   "a811bde74b26b53498b4f6d872b09b6d",
+   -591303064
+  ],
+  "DG.Tweening.Core.DOTweenSettings": [
+   "a811bde74b26b53498b4f6d872b09b6d",
+   16995157
+  ],
+  "DG.Tweening.DOTweenPath": [
+   "aa0b1eebb5db27a419fa4564bbe5c9c5",
+   -333801856
+  ],
+  "DG.Tweening.DOTweenVisualManager": [
+   "aa0b1eebb5db27a419fa4564bbe5c9c5",
+   40306178
+  ]
+ },
+ "packages": {
+  "0a0cc3e90c4a6ea41bb14d7f35c577c3": "DOTween Pro",
+  "188918ab119d93148aa0de59ccf5286b": "DOTween",
+  "1c3190a1a1c53f449926f6d5542b4ce5": "DOTween Pro",
+  "1d1aa01bacf85c04ea18116651a7f0db": "DOTween Pro",
+  "230fe34542e175245ba74b4659dae700": "DOTween",
+  "4d0390bd8b8ffd640b34fe25065ff1df": "DOTween Pro",
+  "63c02322328255542995bd02b47b0457": "DOTween",
+  "7bcaf917d9cf5b84090421a5a2abe42e": "DOTween",
+  "8fb0d65aa5b048649a3a785b82b8f8db": "DOTween Pro",
+  "a060394c03331a64392db53a10e7f2d1": "DOTween",
+  "a811bde74b26b53498b4f6d872b09b6d": "DOTween",
+  "aa0b1eebb5db27a419fa4564bbe5c9c5": "DOTween Pro",
+  "b590cd7c24ffa5d4faa5b6fa993cccad": "DOTween Pro",
+  "b766d08851589514b97afb23c6f30a70": "DOTween",
+  "dae9aa560b4242648a3affa2bfabc365": "DOTween",
+  "e944529dcaee98f4e9498d80e541d93e": "DOTween"
+ }
+}

@@ -15,3 +15,8 @@ asset-optimizer/_test/
 # "No url found for submodule path".
 .claude/worktrees/
 .claude/settings.local.json
+
+# Cấu hình chạy server xem thử của Claude Code (đường dẫn máy cục bộ) và thư mục
+# file xuất tạm khi thử Build Bingo.
+**/.claude/launch.json
+**/_out/

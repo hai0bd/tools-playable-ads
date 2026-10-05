@@ -147,6 +147,11 @@ h1, h2, h3, p { margin: 0; }
 .analysis strong { margin-top: 2px; font-size: 12px; font-weight: 600; }
 .notice { margin-top: 12px; padding: 10px 12px; border-radius: 10px; font-size: 11px; }
 .notice.warning { color: var(--warning); background: rgba(255, 204, 102, .08); border: 1px solid rgba(255, 204, 102, .14); }
+/* Vỏ tải từ SocialPeta: mời nhúng tham chiếu từ xa trước khi làm gì khác. */
+.notice.remote { display: flex; gap: 12px; align-items: center; justify-content: space-between; color: var(--text); background: rgba(185, 243, 74, .06); border: 1px solid rgba(185, 243, 74, .16); }
+.notice.remote .remote-copy { display: grid; gap: 3px; }
+.notice.remote .remote-copy span { color: var(--muted); }
+.notice.remote button[disabled] { opacity: .55; cursor: progress; }
 
 .embedded-heading { align-items: flex-start; }
 .embedded-card.is-collapsed { padding-bottom: 14px; }
@@ -169,6 +174,9 @@ h1, h2, h3, p { margin: 0; }
 .embedded-item-header strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 600 11px/1.3 ui-monospace, monospace; }
 .encoding-badge { padding: 4px 6px; border-radius: 6px; color: var(--accent); background: rgba(185, 243, 74, .09); font: 800 8px/1 ui-monospace, monospace; }
 .encoding-badge.base122 { color: #78cfff; background: rgba(120, 207, 255, .09); }
+.encoding-badge.zip { color: #ffb86b; background: rgba(255, 184, 107, .1); }
+.encoding-badge.brotli { color: #d7a6ff; background: rgba(215, 166, 255, .1); }
+#model-warning { white-space: pre-line; }
 .embedded-meta { flex: 0 0 auto; color: var(--muted); font: 9px/1.2 ui-monospace, monospace; }
 .payload-preview { margin-top: 9px; padding: 8px 9px; display: block; overflow: hidden; color: #9ba6b4; border-radius: 8px; background: #0a0d10; font: 9px/1.4 ui-monospace, monospace; text-overflow: ellipsis; white-space: nowrap; }
 .embedded-visual { min-height: 110px; margin-top: 9px; padding: 10px; display: grid; place-items: center; overflow: hidden; border: 1px solid var(--line-soft); border-radius: 10px; background: repeating-conic-gradient(#171b20 0 25%, #111419 0 50%) 50% / 16px 16px; }
@@ -230,7 +238,8 @@ h1, h2, h3, p { margin: 0; }
 .result-copy strong { font-size: 13px; }
 .result-copy span { margin-top: 2px; color: var(--muted); font: 10px/1.4 ui-monospace, monospace; }
 .result-flags { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 5px; }
-.flag { padding: 3px 6px; border-radius: 999px; background: #20252c; color: #aeb7c2; font: 9px/1.2 ui-monospace, monospace; }
+/* max-width + overflow-wrap: giờ hiện đủ mọi cảnh báo nên một câu dài không được tràn khỏi thẻ. */
+.flag { padding: 3px 6px; border-radius: 999px; background: #20252c; color: #aeb7c2; font: 9px/1.2 ui-monospace, monospace; max-width: 100%; overflow-wrap: anywhere; }
 .flag.good { color: var(--accent); background: rgba(185, 243, 74, .08); }
 .flag.warn { color: var(--warning); background: rgba(255, 204, 102, .08); }
 .flag.bad { color: var(--danger); background: rgba(255, 123, 123, .08); }
@@ -251,7 +260,7 @@ h1, h2, h3, p { margin: 0; }
 .mesh-cell:hover { border-color: #3b4451; transform: translateY(-1px); }
 .mesh-cell.selected { border-color: var(--accent); background: rgba(185, 243, 74, .05); }
 .mesh-cell canvas { width: 100%; height: auto; display: block; border-radius: 8px; background: repeating-conic-gradient(#171b20 0 25%, #111419 0 50%) 50% / 14px 14px; }
-.mesh-cell .cell-name { margin-top: 6px; font: 700 11px/1.2 ui-monospace, monospace; }
+.mesh-cell .cell-name { margin-top: 6px; font: 700 11px/1.2 ui-monospace, monospace; overflow-wrap: anywhere; }
 .mesh-cell .cell-meta { margin-top: 2px; color: var(--muted); font: 9px/1.3 ui-monospace, monospace; }
 .mesh-cell.edited .cell-name::after { content: " ●"; color: var(--accent); }
 
@@ -274,6 +283,7 @@ h1, h2, h3, p { margin: 0; }
 .fit-option + .fit-option { margin-top: 7px; }
 .fit-option input { width: 15px; height: 15px; accent-color: var(--accent); }
 .fit-option span { color: #cdd4dd; }
+.object-pick select { flex: 1; min-width: 0; padding: 7px 9px; color: var(--text); border: 1px solid var(--line); border-radius: 8px; outline: 0; background: #0b0e12; font-size: 12px; }
 .fit-info { margin-top: 8px; color: var(--accent); font: 10px/1.4 ui-monospace, monospace; }
 .fit-info:empty { display: none; }
 .orient-buttons { margin-top: 9px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }

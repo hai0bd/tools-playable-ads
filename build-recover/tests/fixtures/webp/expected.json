@@ -1,0 +1,44 @@
+{
+ "ll_pal5": {
+  "width": 101,
+  "height": 53,
+  "rgbaMd5": "b7cfb103718aa3f5f5170736acba4b90",
+  "what": "VP8L, bảng 5 màu (2 pixel/byte)"
+ },
+ "ll_tiny_17x33": {
+  "width": 17,
+  "height": 33,
+  "rgbaMd5": "f07b3922d7c32b7b2f99be0954f05490",
+  "what": "VP8L 17x33, alpha ngẫu nhiên"
+ },
+ "ly_tiny_33x31": {
+  "width": 33,
+  "height": 31,
+  "rgbaMd5": "52dc29762ec424eb5d06145314019540",
+  "what": "VP8 lossy 33x31"
+ },
+ "ly_alpha_aq30_e6": {
+  "width": 199,
+  "height": 101,
+  "rgbaMd5": "521d2314714f4dd5fd32db3ec9ac4307",
+  "what": "VP8 + ALPH lossless, alpha lượng tử"
+ },
+ "alph_filter3": {
+  "width": 64,
+  "height": 48,
+  "rgbaMd5": "6f90ea58e3d0779f2960407b9eea143e",
+  "what": "VP8 + ALPH thô, lọc gradient"
+ },
+ "p1_8k_s0": {
+  "width": 321,
+  "height": 241,
+  "rgbaMd5": "87d746c8c0218b8b7c3ff77e71a41692",
+  "what": "VP8 libvpx: simple loop filter, segment, 2 partition"
+ },
+ "p0_8k_s0": {
+  "width": 321,
+  "height": 241,
+  "rgbaMd5": "708083ccab33779d1f133f54240d7880",
+  "what": "VP8 libvpx: normal loop filter level 48, segment, 2 partition"
+ }
+}

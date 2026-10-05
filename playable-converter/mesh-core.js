@@ -322,8 +322,44 @@
         var ext = (String(name).match(/\.[^.]+$/) || [""])[0].toLowerCase();
         if (ext === ".glb") return loadGLB(arrayBuffer);
         if (ext === ".obj") return loadOBJ(typeof arrayBuffer === "string" ? arrayBuffer : new TextDecoder().decode(new Uint8Array(arrayBuffer)));
+        if (ext === ".fbx") {
+            var fbx = fbxLoader();
+            if (!fbx) throw new Error("Chưa nạp fbx-core.js — không đọc được .fbx.");
+            return fbx.loadFBX(arrayBuffer);
+        }
         if (ext === ".gltf") throw new Error("Chỉ hỗ trợ .glb (glTF nhị phân), không hỗ trợ .gltf rời. Hãy export dạng .glb.");
-        throw new Error("Chỉ hỗ trợ .glb hoặc .obj");
+        throw new Error("Chỉ hỗ trợ .glb, .obj hoặc .fbx");
+    }
+    // Bộ đọc FBX nằm riêng ở fbx-core.js (nhị phân nén zlib, cây transform — nặng hơn GLB/OBJ nhiều).
+    function fbxLoader() {
+        if (typeof FbxCore !== "undefined") return FbxCore;
+        if (typeof require === "function") { try { return require("./fbx-core"); } catch (e) { } }
+        return null;
+    }
+    // File model hay chứa nhiều object (FBX "Hoe/Shovel/Spoon", xe tách thân + bánh…). model.objects
+    // ghi đoạn idx của từng object; subModel tách riêng một object ra model độc lập (đánh lại chỉ số đỉnh).
+    function subModel(model, which) {
+        var o = model.objects && model.objects[which];
+        if (!o) return model;
+        var remap = new Map(), pos = [], nrm = [], uv = [], uv1 = [], idx = [];
+        for (var k = o.idxStart; k < o.idxStart + o.idxCount; k++) {
+            var g = model.idx[k], l = remap.get(g);
+            if (l === undefined) {
+                l = pos.length;
+                remap.set(g, l);
+                pos.push(model.pos[g]);
+                nrm.push(model.nrm[g]);
+                uv.push(model.uv[g]);
+                uv1.push(model.uv1 ? model.uv1[g] : null);
+            }
+            idx.push(l);
+        }
+        var end = o.idxStart + o.idxCount, parts = [];
+        (model.parts || []).forEach(function (p) {
+            var s = Math.max(p.idxStart, o.idxStart), e = Math.min(p.idxStart + p.idxCount, end);
+            if (e > s) parts.push({ material: p.material, idxStart: s - o.idxStart, idxCount: e - s });
+        });
+        return { pos: pos, nrm: nrm, uv: uv, uv1: uv1, idx: idx, parts: parts, objects: [{ name: o.name, idxStart: 0, idxCount: idx.length }] };
     }
     function loadGLB(arrayBuffer) {
         var buf = arrayBuffer instanceof Uint8Array ? arrayBuffer : new Uint8Array(arrayBuffer);
@@ -377,7 +413,12 @@
 
         // uv1 = kênh UV thứ 2 (TEXCOORD_1, thường là lightmap). parts = ranh giới từng
         // primitive (mỗi primitive ~ 1 material/submesh) để giữ được binding đa-material.
-        var pos = [], nrm = [], uv = [], uv1 = [], idx = [], parts = [];
+        var pos = [], nrm = [], uv = [], uv1 = [], idx = [], parts = [], objects = [];
+        function addObject(meshIdx, world, name) {
+            var start = idx.length;
+            addMesh(meshIdx, world);
+            if (idx.length > start) objects.push({ name: name || json.meshes[meshIdx].name || "mesh " + meshIdx, idxStart: start, idxCount: idx.length - start });
+        }
         function addMesh(meshIdx, world) {
             var prims = json.meshes[meshIdx].primitives;
             for (var pi = 0; pi < prims.length; pi++) {
@@ -400,7 +441,7 @@
         function visit(nodeIdx, parent) {
             var node = json.nodes[nodeIdx];
             var world = mul(parent, composeTRS(node));
-            if (node.mesh != null) addMesh(node.mesh, world);
+            if (node.mesh != null) addObject(node.mesh, world, node.name);
             var ch = node.children || [];
             for (var k = 0; k < ch.length; k++) visit(ch[k], world);
         }
@@ -409,15 +450,17 @@
             var roots = scene && scene.nodes ? scene.nodes : json.nodes.map(function (_, i) { return i; });
             for (var r = 0; r < roots.length; r++) visit(roots[r], IDENT);
         } else {
-            for (var mi = 0; mi < json.meshes.length; mi++) addMesh(mi, IDENT);
+            for (var mi = 0; mi < json.meshes.length; mi++) addObject(mi, IDENT);
         }
-        return { pos: pos, nrm: nrm, uv: uv, uv1: uv1, idx: idx, parts: parts };
+        return { pos: pos, nrm: nrm, uv: uv, uv1: uv1, idx: idx, parts: parts, objects: objects };
     }
     function loadOBJ(text) {
         var vs = [], vns = [], vts = [], map = {}, pos = [], nrm = [], uv = [], idx = [];
         // parts theo 'usemtl' — mỗi nhóm material là 1 submesh. Nếu OBJ không có usemtl → 1 part.
         var groups = [], curName = null, curStart = 0;
         function closeGroup() { if (idx.length > curStart) groups.push({ material: curName, idxStart: curStart, idxCount: idx.length - curStart }); }
+        // object theo 'o' (Blender) hoặc 'g' (3ds Max…) — ghi vị trí idx lúc gặp dòng đó.
+        var marks = { o: [], g: [] };
         var lines = text.split(/\r?\n/);
         for (var li = 0; li < lines.length; li++) {
             var t = lines[li].trim(); if (!t || t.charAt(0) === "#") continue;
@@ -426,6 +469,7 @@
             else if (pp[0] === "vn") vns.push([+pp[1], +pp[2], +pp[3]]);
             else if (pp[0] === "vt") vts.push([+pp[1], 1 - (+pp[2])]);
             else if (pp[0] === "usemtl") { closeGroup(); curName = pp[1] || ""; curStart = idx.length; }
+            else if (pp[0] === "o" || pp[0] === "g") marks[pp[0]].push({ name: pp.slice(1).join(" ") || pp[0], at: idx.length });
             else if (pp[0] === "f") {
                 var verts = [];
                 for (var fi = 1; fi < pp.length; fi++) {
@@ -443,7 +487,13 @@
         closeGroup();
         if (!groups.length) groups.push({ material: null, idxStart: 0, idxCount: idx.length });
         var uv1 = []; for (var u = 0; u < pos.length; u++) uv1.push(null); // OBJ không có kênh UV2
-        return { pos: pos, nrm: nrm, uv: uv, uv1: uv1, idx: idx, parts: groups };
+        var use = marks.o.length ? marks.o : marks.g, objects = [];
+        if (use.length && use[0].at > 0) objects.push({ name: "(mặt trước object đầu)", idxStart: 0, idxCount: use[0].at });
+        use.forEach(function (m, i) {
+            var end = i + 1 < use.length ? use[i + 1].at : idx.length;
+            if (end > m.at) objects.push({ name: m.name, idxStart: m.at, idxCount: end - m.at });
+        });
+        return { pos: pos, nrm: nrm, uv: uv, uv1: uv1, idx: idx, parts: groups, objects: objects };
     }
 
     // ───────────────────────── build .bin + struct mới ─────────────────────────
@@ -789,6 +839,7 @@
         loadModel: loadModel,
         loadGLB: loadGLB,
         loadOBJ: loadOBJ,
+        subModel: subModel,
         // thay & xuất
         buildBin: buildBin,
         buildStruct: buildStruct,

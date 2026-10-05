@@ -56,6 +56,12 @@
     function rescan() {
         try { state.list = core.listScripts(state.html); }
         catch (e) { state.list = []; }
+        // Script nằm trong gói ZIP (build Bingo) hay nén Brotli (Luna) do panel riêng cung cấp — xếp lên
+        // đầu vì đó mới là code game.
+        if (opts.extraScripts) {
+            try { state.list = opts.extraScripts(state.html).concat(state.list); }
+            catch (e) { }
+        }
         if (!state.list.length) { showEmpty("Playable này không có file .js nào để sửa."); return; }
         el["script-empty"].hidden = true;
         el["script-body"].hidden = false;
@@ -98,7 +104,7 @@
         el["sc-title"].textContent = s.name;
         el["sc-kind"].textContent = KIND_LABEL[s.kind] || s.kind;
         el["sc-kind"].className = "script-kind " + s.kind;
-        el["sc-meta"].textContent = fmtSize(s.size) + " · " + (s.source === "res" ? "trong window.__res" : "thẻ <script> inline");
+        el["sc-meta"].textContent = fmtSize(s.size) + " · " + (s.source === "res" ? "trong window.__res" : s.source === "zip" ? "trong gói ZIP (window.__zip)" : s.source === "luna" ? "payload Luna nén Brotli (nén lại khi áp dụng)" : "thẻ <script> inline");
         el["sc-editor"].value = s.text;
         el["sc-format"].disabled = s.size > MAX_FMT;
         el["sc-warning"].hidden = true;
@@ -144,21 +150,35 @@
         updateApplyState();
     });
 
+    function applied(s, out, before, after) {
+        state.html = out;
+        el["sc-note"].className = "save-note";
+        el["sc-note"].textContent = "Đã áp dụng vào " + s.name + " (" + fmtSize(before) + " → " + fmtSize(after) + "). Convert & đóng .zip sẽ dùng bản mới.";
+        el["sc-note"].hidden = false;
+        rescan();                       // offset đã đổi → quét lại
+        if (opts.onApply) opts.onApply(out);
+    }
+    function applyFailed(err) {
+        el["sc-note"].className = "save-note error";
+        el["sc-note"].textContent = "Không áp dụng được: " + err.message;
+        el["sc-note"].hidden = false;
+    }
     el["sc-apply"].addEventListener("click", function () {
         var s = currentScript(); if (!s) return;
+        var text = el["sc-editor"].value, before = s.size, after = text.length;
+        // Script trong gói ZIP (bingo-panel) hay payload nén Brotli của Luna (luna-panel): nén lại rồi ghi
+        // ngược vào HTML qua hook replaceExtra.
+        if ((s.source === "zip" || s.source === "luna") && opts.replaceExtra) {
+            el["sc-apply"].disabled = true;
+            Promise.resolve().then(function () { return opts.replaceExtra(state.html, s, text); })
+                .then(function (out) { applied(s, out, before, after); }, applyFailed)
+                .then(function () { updateApplyState(); });
+            return;
+        }
         try {
-            var out = core.replaceScript(state.html, s.id, el["sc-editor"].value);
-            state.html = out;
-            var before = s.size, after = el["sc-editor"].value.length;
-            el["sc-note"].className = "save-note";
-            el["sc-note"].textContent = "Đã áp dụng vào " + s.name + " (" + fmtSize(before) + " → " + fmtSize(after) + "). Convert & đóng .zip sẽ dùng bản mới.";
-            el["sc-note"].hidden = false;
-            rescan();                       // offset đã đổi → quét lại
-            if (opts.onApply) opts.onApply(out);
+            applied(s, core.replaceScript(state.html, s.id, text), before, after);
         } catch (err) {
-            el["sc-note"].className = "save-note error";
-            el["sc-note"].textContent = "Không áp dụng được: " + err.message;
-            el["sc-note"].hidden = false;
+            applyFailed(err);
         }
     });
 

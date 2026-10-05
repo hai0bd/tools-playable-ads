@@ -2,7 +2,7 @@
     "use strict";
 
     var core = window.PlayableConverter;
-    var state = { mode: "saygames", file: null, originalHtml: "", html: "", analysis: null, embeddedData: [], embeddedExpanded: false, kindFilter: "all", results: [] };
+    var state = { mode: "saygames", file: null, originalHtml: "", html: "", analysis: null, embeddedData: [], embeddedExpanded: false, kindFilter: "all", results: [], inlineReport: null };
 
     var elements = {
         steps: document.getElementById("steps"),
@@ -21,6 +21,11 @@
         analysisEnd: document.getElementById("analysis-end"),
         analysisMouse: document.getElementById("analysis-mouse"),
         modeWarning: document.getElementById("mode-warning"),
+        remoteNotice: document.getElementById("remote-notice"),
+        remoteTitle: document.getElementById("remote-title"),
+        remoteDetail: document.getElementById("remote-detail"),
+        inlineRemote: document.getElementById("inline-remote"),
+        useInnerDoc: document.getElementById("use-inner-doc"),
         embeddedCard: document.getElementById("embedded-card"),
         embeddedSummary: document.getElementById("embedded-summary"),
         embeddedKinds: document.getElementById("embedded-kinds"),
@@ -56,6 +61,8 @@
     elements.toggleEmbedded.addEventListener("click", toggleEmbeddedData);
     elements.resetEmbedded.addEventListener("click", resetEmbeddedData);
     elements.downloadEdited.addEventListener("click", downloadEditedHtml);
+    if (elements.inlineRemote) elements.inlineRemote.addEventListener("click", inlineRemoteRefs);
+    if (elements.useInnerDoc) elements.useInnerDoc.addEventListener("click", useInnerDocument);
 
     ["dragenter", "dragover"].forEach(function (eventName) {
         elements.dropZone.addEventListener(eventName, function (event) {
@@ -103,21 +110,8 @@
             var html = await file.text();
             state.file = file;
             if (elements.projectName) elements.projectName.value = baseName(file.name);
-            state.originalHtml = html;
-            state.html = html;
-            state.analysis = core.analyze(html, file.name);
-            state.embeddedData = core.extractEmbeddedData(html);
-            if (window.MeshPanel) MeshPanel.load(state.html, file.name);
-            if (window.ScriptPanel) ScriptPanel.load(state.html, file.name);
-            state.embeddedExpanded = false;
-            state.kindFilter = "all";
-            elements.embeddedNotice.hidden = true;
-            state.results = [];
-            if (["saygames", "cocos-old", "luna", "super-html", "setup-config"].indexOf(state.analysis.build) >= 0) setMode(state.analysis.build, false);
-            renderFile();
-            renderResults();
-            updateModeWarning();
-            updateControls();
+            state.inlineReport = null;
+            applyHtml(html);
             showWorkspace(true);
             setStep("output");
         } catch (error) {
@@ -125,8 +119,131 @@
         }
     }
 
+    // Dùng chung cho lúc nạp file và lúc vừa nhúng xong tham chiếu từ xa: cả hai đều phải
+    // phân tích lại từ đầu vì HTML đổi thì build, asset và script bên trong đều đổi theo.
+    function applyHtml(html) {
+        var name = state.file ? state.file.name : "";
+        state.originalHtml = html;
+        state.html = html;
+        state.analysis = core.analyze(html, name);
+        state.embeddedData = extractEmbedded(html);
+        if (window.MeshPanel) MeshPanel.load(state.html, name);
+        if (window.ScriptPanel) ScriptPanel.load(state.html, name);
+        state.embeddedExpanded = false;
+        state.kindFilter = "all";
+        elements.embeddedNotice.hidden = true;
+        state.results = [];
+        if (["saygames", "cocos-old", "luna", "super-html", "setup-config", "bingo", "threejs", "playsmart", "mindworks"].indexOf(state.analysis.build) >= 0) setMode(state.analysis.build, false);
+        renderFile();
+        renderResults();
+        updateModeWarning();
+        updateRemoteNotice();
+        updateControls();
+    }
+
+    /* ── Nhúng tham chiếu từ xa ──────────────────────────────────────────────
+     * File tải từ SocialPeta thường chỉ là cái vỏ vài KB: game nằm sau <script src>
+     * trên CDN, đôi khi sau cả <iframe>. Chưa nhúng thì detectBuild() không có gì để
+     * đọc nên trả "unknown" với MỌI kiểu build, và tab Asset/Scripts cũng trống trơn.
+     * Nhúng xong thì 7 kiểu build hiện có nhận ra ngay, không phải sửa gì trong chúng.
+     */
+    function updateRemoteNotice() {
+        if (!elements.remoteNotice) return;
+        if (!window.InlineCore || !state.html) { elements.remoteNotice.hidden = true; return; }
+        var pending = InlineCore.countPending(state.html);
+        if (!pending && !state.inlineReport) { elements.remoteNotice.hidden = true; return; }
+
+        elements.remoteNotice.hidden = false;
+        elements.inlineRemote.hidden = pending === 0;
+        elements.inlineRemote.disabled = false;
+        elements.inlineRemote.textContent = "Nhúng vào file";
+
+        var inner = state.inlineReport && state.inlineReport.documents.length ? state.inlineReport.documents[0] : null;
+        if (elements.useInnerDoc) {
+            elements.useInnerDoc.hidden = !inner;
+            if (inner) elements.useInnerDoc.textContent = "Dùng " + inner.label + " · " + formatBytes(inner.html.length);
+        }
+
+        if (pending) {
+            elements.remoteTitle.textContent = "File còn " + pending + " tham chiếu từ xa";
+            elements.remoteDetail.textContent = "Bản tải về từ SocialPeta thường chỉ là vỏ. Nhúng vào thì mới nhận ra kiểu build và đọc được asset bên trong.";
+            return;
+        }
+        var report = state.inlineReport;
+        elements.remoteTitle.textContent = "Đã nhúng " + report.stats.inlined + " tham chiếu · " + formatBytes(report.stats.bytes);
+        elements.remoteDetail.textContent = describeInlineResult(report);
+    }
+
+    // Hai dạng creative mà game thật KHÔNG nằm ở tài liệu gốc:
+    //   - MW_PLFRAME (Mintegral): game trong iframe; trong srcdoc code đã bị HTML-escape nên
+    //     regex của convert() không khớp gì.
+    //   - VIDEO_PLAYABLE_ENDCARD_V1 (AppLovin): game là URL trong JSON #ad-context.
+    // Cả hai đều phải làm việc trên chính tài liệu con thì convert mới sửa được code.
+    function useInnerDocument() {
+        var inner = state.inlineReport && state.inlineReport.documents[0];
+        if (!inner) return;
+        state.inlineReport = null;
+        applyHtml(inner.html);
+        showModeWarning("Đã chuyển sang " + inner.label + " (" + inner.url + "). Lớp vỏ của mạng nguồn đã bị bỏ lại.");
+    }
+
+    function describeInlineResult(report) {
+        var parts = [];
+        if (report.stats.kept) parts.push(report.stats.kept + " thẻ SDK giữ nguyên cho bước convert");
+        if (report.stats.failed) parts.push(report.stats.failed + " file tải lỗi (thẻ được giữ nguyên)");
+        if (report.stats.skipped) parts.push(report.stats.skipped + " tham chiếu bỏ qua");
+        if (report.remaining.length) parts.push(report.remaining.length + " ảnh/audio từ xa chưa xử lý");
+        if (report.warnings.length) parts.push(report.warnings.length + " cảnh báo — xem Console");
+        return parts.length ? parts.join(" · ") : "Không còn tham chiếu ra ngoài.";
+    }
+
+    /* credentials omit: chỉ đọc file tĩnh trên CDN, không gửi kèm cookie của người dùng.
+     *
+     * referrerPolicy no-referrer: CDN của Zingfront lọc theo DANH SÁCH TRẮNG REFERER. Đã đo trên
+     * cùng một URL:
+     *      không Referer                  → 200
+     *      Referer: http://localhost:8000/ → 200   (localhost nằm trong danh sách trắng)
+     *      Referer: https://…github.io/    → 403
+     *      Origin:  https://…github.io     → 200   (Origin KHÔNG bị xét)
+     * Nên chạy ở máy thì trót lọt, đưa tool lên GitHub Pages là 403 hàng loạt. Bỏ Referer đi là
+     * hết, mà CORS vẫn qua vì CDN trả Access-Control-Allow-Origin: * bất kể Origin nào.
+     */
+    function fetchRemoteText(url) {
+        return fetch(url, { credentials: "omit", referrerPolicy: "no-referrer" }).then(function (response) {
+            if (!response.ok) throw new Error("HTTP " + response.status);
+            return response.text();
+        }, function () {
+            // fetch() chỉ reject khi lỗi mạng hoặc CORS. Host chặn CORS (play.rayjump.com là
+            // một ví dụ thật) thì trình duyệt không cho ĐỌC nội dung — nhưng thẻ <script src>
+            // thì không bị chặn, nên file vẫn chạy khi online, chỉ là chưa self-contained.
+            throw new Error("CORS chặn hoặc mất mạng — giữ nguyên thẻ, file vẫn chạy khi online nhưng chưa self-contained");
+        });
+    }
+
+    async function inlineRemoteRefs() {
+        elements.inlineRemote.disabled = true;
+        elements.inlineRemote.textContent = "Đang tải…";
+        try {
+            var report = await InlineCore.inline(state.html, {
+                fetchText: fetchRemoteText,
+                // Không hiện mẫu số: iframe lồng nhau sinh thêm tham chiếu nên tổng chỉ biết khi xong.
+                onProgress: function (p) { elements.inlineRemote.textContent = "Đang tải " + p.done + " file…"; }
+            });
+            report.warnings.forEach(function (w) { console.warn("[inline] " + w); });
+            report.errors.forEach(function (e) { console.error("[inline] " + e); });
+            state.inlineReport = report;
+            applyHtml(report.html);
+        } catch (error) {
+            state.inlineReport = null;
+            updateRemoteNotice();
+            showModeWarning("Nhúng thất bại: " + error.message);
+        }
+    }
+
     function clearFile() {
         state.file = null;
+        state.inlineReport = null;
+        if (elements.remoteNotice) elements.remoteNotice.hidden = true;
         state.originalHtml = "";
         state.html = "";
         state.analysis = null;
@@ -168,7 +285,17 @@
         } else if (info.build === "luna") {
             elements.analysisEnd.textContent = "luna:ended";
         } else if (info.build === "super-html") {
-            elements.analysisEnd.textContent = "game_end · " + (info.superHtmlVersion === "old" ? "bản cũ" : info.superHtmlVersion === "new" ? "bản mới" : "chưa rõ version");
+            var zipped = state.embeddedData.filter(function (item) { return item.source === "bingo-zip"; }).length;
+            elements.analysisEnd.textContent = "game_end · " + (info.superHtmlVersion === "old" ? "bản cũ" : info.superHtmlVersion === "new" ? "bản mới" : "chưa rõ version") + (zipped ? " · " + zipped + " file trong gói" : "");
+        } else if (info.build === "bingo") {
+            var packed = state.embeddedData.filter(function (item) { return item.source === "bingo-zip"; }).length;
+            elements.analysisEnd.textContent = "PlayableSDK.game_end · " + (packed ? packed + " file trong gói " + info.zipEncoding : "không đọc được gói");
+        } else if (info.build === "threejs") {
+            elements.analysisEnd.textContent = "api.playableFinished" + (info.avkProduct ? " · " + info.avkProduct : "");
+        } else if (info.build === "playsmart") {
+            elements.analysisEnd.textContent = "ps.gameEnd → window.gameEnd";
+        } else if (info.build === "mindworks") {
+            elements.analysisEnd.textContent = "gameEndHandle → window.gameEnd";
         } else {
             elements.analysisEnd.textContent = "Chưa nhận diện";
         }
@@ -228,6 +355,10 @@
         elements.embeddedSummary.innerHTML = "";
         elements.embeddedSummary.appendChild(makeCountPill("Base64", base64Count));
         elements.embeddedSummary.appendChild(makeCountPill("Base122", base122Count));
+        var zipCount = visibleData.filter(function (item) { return item.source === "bingo-zip"; }).length;
+        if (zipCount) elements.embeddedSummary.appendChild(makeCountPill("File trong gói ZIP", zipCount));
+        var brotliCount = visibleData.filter(function (item) { return item.source === "luna-brotli"; }).length;
+        if (brotliCount) elements.embeddedSummary.appendChild(makeCountPill("Nén Brotli (Luna)", brotliCount));
         elements.resetEmbedded.disabled = state.html === state.originalHtml;
         var collapsed = !state.embeddedExpanded;
         elements.embeddedCard.classList.toggle("is-collapsed", collapsed);
@@ -259,6 +390,16 @@
         }
 
         danhSach.forEach(function (item) {
+            // Build Bingo: từng file trong gói ZIP có UI riêng (xem / tải / thay) ở bingo-panel.js.
+            if (item.source === "bingo-zip" && window.BingoPanel) {
+                elements.embeddedList.appendChild(BingoPanel.buildRow(item, panelRowContext("bingo")));
+                return;
+            }
+            // Build Luna: sound (và asset khác) nén Brotli — luna-panel.js giải nén để nghe / tải / thay.
+            if (item.source === "luna-brotli" && window.LunaPanel) {
+                elements.embeddedList.appendChild(LunaPanel.buildRow(item, panelRowContext("luna")));
+                return;
+            }
             var row = document.createElement("article");
             row.className = "embedded-item";
 
@@ -269,7 +410,7 @@
             badge.className = "encoding-badge " + item.encoding;
             badge.textContent = item.encoding.toUpperCase();
             var context = document.createElement("strong");
-            context.textContent = item.context;
+            context.textContent = item.label || item.context;
             title.append(badge, context);
             var meta = document.createElement("span");
             meta.className = "embedded-meta";
@@ -393,7 +534,7 @@
                 base122File.addEventListener("change", async function () {
                     if (!base122File.files[0]) return;
                     try {
-                        textarea.value = await fileToBase122(base122File.files[0]);
+                        textarea.value = await fileToBase122(base122File.files[0], item);
                         showEmbeddedNotice("Đã mã hóa " + base122File.files[0].name + " thành Base122. Bấm Thay thế để áp dụng.", false);
                     } catch (error) {
                         showEmbeddedNotice("Không mã hóa được file: " + error.message, true);
@@ -505,8 +646,11 @@
         return file.arrayBuffer().then(function (buffer) { return core.encodeBase64Bytes(buffer); });
     }
 
-    function fileToBase122(file) {
-        return file.arrayBuffer().then(function (buffer) { return core.encodeBase122Bytes(buffer); });
+    // item.base122Standard: ảnh Luna cần bảng base122 CHUẨN (6 ký tự né). Mã bằng bảng 7 phần tử
+    // của repo thì bộ giải của Luna tra trượt và playable đứng ở màn loading — đã đo.
+    function fileToBase122(file, item) {
+        var options = item && item.base122Standard ? { standard: true } : undefined;
+        return file.arrayBuffer().then(function (buffer) { return core.encodeBase122Bytes(buffer, options); });
     }
 
     function downloadDecodedBase64(item, mediaType) {
@@ -530,7 +674,7 @@
     function decodedFilename(item, mediaType) {
         if (mediaType === "application/zip") return "window.zip";
         var extensions = { "image/png": "png", "image/jpeg": "jpg", "image/gif": "gif", "image/webp": "webp", "image/svg+xml": "svg", "image/x-icon": "ico" };
-        var contextName = String(item.context || "").replace(/\\/g, "/").split("/").pop();
+        var contextName = String(item.label || item.context || "").replace(/\\/g, "/").split("/").pop();
         if (/^[^<>:"/\\|?*]+\.[A-Za-z0-9]{1,8}$/.test(contextName)) return contextName;
         return "embedded-" + item.id + "." + (extensions[mediaType] || "bin");
     }
@@ -554,7 +698,7 @@
         try {
             state.html = core.replaceEmbeddedData(state.html, id, replacement);
             state.analysis = core.analyze(state.html, state.file.name);
-            state.embeddedData = core.extractEmbeddedData(state.html);
+            state.embeddedData = extractEmbedded(state.html);
             state.results = [];
             renderFile();
             renderResults();
@@ -566,6 +710,25 @@
         }
     }
 
+    // Build Bingo / Super HTML: tab Asset nhúng liệt kê từng file trong gói ZIP (window.__zip) và gắn tên
+    // dễ đọc lấy từ config.json của Cocos — cách gộp nằm ở BingoPanel.embeddedItems.
+    // Build Luna: ảnh được gắn tên thật từ bundle.json, sound nén Brotli nối thêm — LunaPanel.embeddedItems.
+    function extractEmbedded(html) {
+        var items = core.extractEmbeddedData(html);
+        if (window.BingoPanel) items = BingoPanel.embeddedItems(html, items);
+        if (window.LunaPanel) items = LunaPanel.embeddedItems(html, items);
+        return items;
+    }
+
+    function panelRowContext(source) {
+        return {
+            html: function () { return state.html; },
+            onHtml: function (newHtml) { adoptEditedHtml(newHtml, source); },
+            notice: showEmbeddedNotice,
+            download: downloadBlob
+        };
+    }
+
     function toggleEmbeddedData() {
         state.embeddedExpanded = !state.embeddedExpanded;
         renderEmbeddedData();
@@ -575,7 +738,7 @@
         if (!state.file) return;
         state.html = state.originalHtml;
         state.analysis = core.analyze(state.html, state.file.name);
-        state.embeddedData = core.extractEmbeddedData(state.html);
+        state.embeddedData = extractEmbedded(state.html);
         state.results = [];
         renderFile();
         renderResults();
@@ -596,7 +759,7 @@
     function adoptEditedHtml(newHtml, source) {
         state.html = newHtml;
         state.analysis = core.analyze(newHtml, state.file ? state.file.name : "playable.html");
-        state.embeddedData = core.extractEmbeddedData(newHtml);
+        state.embeddedData = extractEmbedded(newHtml);
         state.results = [];
         var name = state.file ? state.file.name : "playable.html";
         if (source !== "mesh" && window.MeshPanel) MeshPanel.load(state.html, name);
@@ -605,7 +768,11 @@
         renderResults();
         showEmbeddedNotice(source === "scripts"
             ? "Đã áp dụng thay đổi script vào playable. Convert & đóng .zip sẽ dùng bản mới."
-            : "Đã áp dụng thay đổi mesh/texture vào playable. Convert & đóng .zip sẽ dùng bản mới.", false);
+            : source === "bingo"
+                ? "Đã ghi gói ZIP mới vào playable. Convert & đóng .zip sẽ dùng bản mới."
+                : source === "luna"
+                    ? "Đã nén lại asset Luna vào playable. Convert & đóng .zip sẽ dùng bản mới."
+                    : "Đã áp dụng thay đổi mesh/texture vào playable. Convert & đóng .zip sẽ dùng bản mới.", false);
     }
 
     async function copyPayload(payload, label) {
@@ -706,10 +873,17 @@
             path.textContent = projectName() + "/" + artifactName(result) + " · " + formatBytes(result.bytes);
             var flags = document.createElement("div");
             flags.className = "result-flags";
-            flags.appendChild(makeFlag(result.errors.length ? result.errors.length + " lỗi" : "JS OK", result.errors.length ? "bad" : "good"));
-            flags.appendChild(makeFlag(result.warnings.length ? result.warnings.length + " cảnh báo" : "Adapter OK", result.warnings.length ? "warn" : "good"));
-            result.errors.slice(0, 1).forEach(function (message) { flags.appendChild(makeFlag(message, "bad")); });
-            result.warnings.slice(0, 1).forEach(function (message) { flags.appendChild(makeFlag(message, "warn")); });
+            // Hiện ĐỦ mọi lỗi và cảnh báo. Trước đây chỉ lấy cái đầu tiên, nên thẻ ghi "3 cảnh báo"
+            // mà người dùng đọc được đúng một cái và không biết hai cái kia ở đâu.
+            var errorFlag = makeFlag(result.errors.length ? result.errors.length + " lỗi" : "JS OK", result.errors.length ? "bad" : "good");
+            if (result.errors.length) errorFlag.title = result.errors.join("\n");
+            flags.appendChild(errorFlag);
+            var warnFlag = makeFlag(result.warnings.length ? result.warnings.length + " cảnh báo" : "Adapter OK", result.warnings.length ? "warn" : "good");
+            if (result.warnings.length) warnFlag.title = result.warnings.join("\n");
+            flags.appendChild(warnFlag);
+            result.errors.forEach(function (message) { flags.appendChild(makeFlag(message, "bad")); });
+            result.warnings.forEach(function (message) { flags.appendChild(makeFlag(message, "warn")); });
+            (result.notes || []).forEach(function (message) { flags.appendChild(makeFlag(message, "good")); });
             copy.append(title, path, flags);
 
             var button = document.createElement("button");
@@ -838,11 +1012,11 @@
     }
 
     function buildLabel(build) {
-        return ({ "saygames": "SayGames", "cocos-old": "Cocos build cũ", "luna": "Luna", "super-html": "Super HTML", "setup-config": "setupConfig", "unknown": "Không xác định" })[build] || build;
+        return ({ "saygames": "SayGames", "cocos-old": "Cocos build cũ", "luna": "Luna", "super-html": "Super HTML", "setup-config": "setupConfig", "bingo": "Bingo", "threejs": "Three.js (AVK)", "playsmart": "PlaySmart / QICI", "mindworks": "MindWorks / Mintegral", "unknown": "Không xác định" })[build] || build;
     }
 
     function networkLabel(network) {
-        return ({ applovin: "AppLovin", mintegral: "Mintegral", unity: "Unity", google: "Google", pangle: "Pangle", unknown: "Không xác định" })[network] || network;
+        return ({ applovin: "AppLovin", mintegral: "Mintegral", unity: "Unity", google: "Google", pangle: "Pangle", ironsource: "ironSource", facebook: "Facebook", vungle: "Vungle / Liftoff", moloco: "Moloco", chartboost: "Chartboost", unknown: "Không xác định" })[network] || network;
     }
 
     function formatBytes(bytes) {
@@ -854,5 +1028,19 @@
     setMode("saygames", false);
     updateControls();
     if (window.MeshPanel) MeshPanel.init({ onApply: function (h) { adoptEditedHtml(h, "mesh"); } });
-    if (window.ScriptPanel) ScriptPanel.init({ onApply: function (h) { adoptEditedHtml(h, "scripts"); } });
+    // Script ngoài window.__res / thẻ <script>: file trong gói ZIP (Bingo) và payload nén Brotli (Luna).
+    if (window.ScriptPanel) ScriptPanel.init({
+        onApply: function (h) { adoptEditedHtml(h, "scripts"); },
+        extraScripts: function (html) {
+            var list = [];
+            if (window.BingoPanel) list = list.concat(BingoPanel.scripts(html));
+            if (window.LunaPanel) list = list.concat(LunaPanel.scripts(html));
+            return list;
+        },
+        replaceExtra: function (html, script, text) {
+            if (script.source === "luna" && window.LunaPanel) return LunaPanel.replaceScript(html, script, text);
+            if (window.BingoPanel) return BingoPanel.replaceScript(html, script, text);
+            throw new Error("Không có module ghi lại cho script " + script.name);
+        }
+    });
 })();

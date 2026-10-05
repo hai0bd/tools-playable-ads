@@ -18,6 +18,20 @@ window.TOOLS = [
     "hidden": false
   },
   {
+    "slug": "build-recover",
+    "name": "Build Recover",
+    "desc": "Dựng lại project Cocos Creator 3.x hoặc Unity (playable Luna) từ bản build",
+    "badge": "BR",
+    "entry": "build-recover/",
+    "pages": [],
+    "hasTests": true,
+    "hasReadme": true,
+    "updated": null,
+    "tags": [],
+    "order": 0,
+    "hidden": false
+  },
+  {
     "slug": "build-size-analyzer",
     "name": "Build Size Analyzer",
     "desc": "Thống kê dung lượng build Cocos Creator",
@@ -26,7 +40,7 @@ window.TOOLS = [
     "pages": [],
     "hasTests": false,
     "hasReadme": false,
-    "updated": "2026-08-21T08:31:15+07:00",
+    "updated": "2026-09-09T15:02:08+07:00",
     "tags": [],
     "order": 0,
     "hidden": false
@@ -65,4 +79,4 @@ window.TOOLS = [
     "hidden": false
   }
 ];
-window.TOOLS_BUILT_AT = "2026-09-09T06:28:35.977Z";
+window.TOOLS_BUILT_AT = "2026-09-28T09:05:35.725Z";
