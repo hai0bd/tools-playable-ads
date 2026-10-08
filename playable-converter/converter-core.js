@@ -636,7 +636,42 @@
         var serving = stripServingLayers(html);
         var result = convertBuild(serving.html, build, target, options);
         result.notes = (serving.removed.length ? ["Đã gỡ lớp phát hành Mintegral dính theo bản SocialPeta: " + serving.removed.join(", ")] : []).concat(result.notes || []);
+        result.html = replaceMwStoreUrl(result.html, options);
+        var stale = staleStoreLinks(result.html, options);
+        if (stale.length) result.warnings.push("Còn link store cũ trong file: " + stale.join(" , "));
         return result;
+    }
+
+    // Dùng lại một playable cho game khác thì link cũ còn sót là lỗi nặng nhất (CTA mở nhầm game), nên
+    // khi người dùng nhập link mới, mọi link store khác link đó trong bản xuất đều bị báo. Chỉ thấy link
+    // dạng văn bản (kể cả \/ và %2F, &quot;); link nằm trong gói nén/base64 thì không quét được.
+    // Khối `store_url: { ios: "…", android: "…" }` của MW_CONFIG (Mintegral) dính theo nhiều kiểu build
+    // lấy từ SocialPeta, không riêng MindWorks, nên thay ở đây cho mọi build.
+    function replaceMwStoreUrl(html, options) {
+        var out = html;
+        [["android", options.androidUrl], ["ios", options.iosUrl]].forEach(function (pair) {
+            var value = pair[1] && String(pair[1]).trim();
+            if (!value) return;
+            var regex = new RegExp("(\\bstore_url\\s*:\\s*\\{[^}]*?\\b" + pair[0] + "\\s*:\\s*)([\"'])[^\"']*\\2");
+            out = out.replace(regex, function (all, head, quote) { return head + quote + escapeJsString(value) + quote; });
+        });
+        return out;
+    }
+
+    var STORE_LINK_RE =/(?:https?:\/\/(?:play\.google\.com\/store\/apps\/details\?id=|(?:apps|itunes)\.apple\.com\/)|market:\/\/details\?id=)[^\s"'`\\<>)%]*/g;
+    function plainLinks(text) {
+        return String(text || "").replace(/\\\//g, "/").replace(/&quot;/g, '"').replace(/&amp;/g, "&")
+            .replace(/%3A/gi, ":").replace(/%2F/gi, "/").replace(/%3F/gi, "?").replace(/%3D/gi, "=");
+    }
+    function findStoreLinks(html) {
+        var seen = {}, list = [];
+        (plainLinks(html).match(STORE_LINK_RE) || []).forEach(function (url) { if (!seen[url]) { seen[url] = true; list.push(url); } });
+        return list;
+    }
+    function staleStoreLinks(html, options) {
+        var android = plainLinks(options.androidUrl).trim(), ios = plainLinks(options.iosUrl).trim();
+        if (!android && !ios) return [];
+        return findStoreLinks(html).filter(function (url) { return url !== android && url !== ios; });
     }
 
     function convertBuild(html, build, target, options) {
@@ -1131,6 +1166,7 @@
 
         out = setMraidTag(out, target === "unity");
         out = configureGoogleExitApi(out, target);
+        out = replaceLoaderStoreUrls(out, options);
         var adapter = buildSuperHtmlAdapter(target, version, options);
         var wrapperRegex = /window\.super_html\s*=\s*\{[\s\S]*?\}\s*;+(?=\s*window\.(?:__res|__zip|zip)\s*=)/;
         if (wrapperRegex.test(out)) {
@@ -1141,6 +1177,17 @@
             out = payload.test(out) ? out.replace(payload, adapter + "\n$&") : insertBeforeClosingBody(out, '<script data-playable-converter="super-html-adapter">\n' + adapter + "\n</script>");
         }
         return { html: out, warnings: warnings };
+    }
+
+    // Bản Super HTML có loader riêng mang cấu hình {"channel":…,"android":"…","ios":"…"}. Adapter ưu tiên
+    // link mới nhưng lùi về link này khi nền tảng kia để trống, nên phải thay cả ở đây.
+    function replaceLoaderStoreUrls(html, options) {
+        var android = options.androidUrl && String(options.androidUrl).trim();
+        var ios = options.iosUrl && String(options.iosUrl).trim();
+        if (!android && !ios) return html;
+        return html.replace(/("android"\s*:\s*")([^"]*)("\s*,\s*"ios"\s*:\s*")([^"]*)(")/g, function (all, a, oldAndroid, b, oldIos, c) {
+            return a + (android ? JSON.stringify(android).slice(1, -1) : oldAndroid) + b + (ios ? JSON.stringify(ios).slice(1, -1) : oldIos) + c;
+        });
     }
 
     function buildSuperHtmlAdapter(target, version, options) {
@@ -1371,7 +1418,8 @@
         // object (androidLink: '…'); chỉ bắt "=" sẽ bỏ sót toàn bộ dạng thứ hai.
         // "$" trong URL phải escape thành "$$" vì replace() coi $& / $1 là ký hiệu.
         // Bắt cả template literal: build đã minify hay dùng backtick cho chuỗi.
-        var regex = new RegExp("(\\b(?:var\\s+)?" + escapeRegex(name) + "\\s*[:=]\\s*)(['\"`])[^'\"`]*\\2", "g");
+        // "[\"']?" sau tên: có bản Luna viết khóa dạng JSON ("iosLink": "…"), thiếu nó là sót cả hai link.
+        var regex = new RegExp("(\\b(?:var\\s+)?" + escapeRegex(name) + "[\"']?\\s*[:=]\\s*)(['\"`])[^'\"`]*\\2", "g");
         var escaped = escapeJsString(value).replace(/\$/g, "$$$$");
         return html.replace(regex, "$1$2" + escaped + "$2");
     }
@@ -1707,6 +1755,7 @@
     return {
         NETWORKS: NETWORKS,
         ASSET_KINDS: ASSET_KINDS,
+        findStoreLinks: findStoreLinks,
         assetKind: assetKind,
         analyze: analyze,
         extractEmbeddedData: extractEmbeddedData,
