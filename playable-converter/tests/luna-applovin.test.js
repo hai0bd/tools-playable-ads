@@ -171,3 +171,59 @@ var keptDataSrc = core.convert(dataSrc, "luna", "applovin", {}).html;
 assert.ok(keptDataSrc.indexOf('data-src="https://cdn.example.com/pangle-sdk.js"') >= 0, "data-src must not be treated as a remote SDK tag");
 
 console.log("luna PlProtocol bridge + mraid tag tests passed");
+
+// AppLovin rejects an asset that "makes external requests": Luna's own analytics (window.pi) posts to
+// collector.lunalabs.io, and three debug helpers carry CDN URLs. Unity keeps them (Luna is Unity's).
+var telemetrySource = '<!doctype html><html><body>' +
+    '<script>let e="";if(e){o.setAttribute("src","https://console.re/connector.js")}var t=`see http://console.re/${e} or https://docs.lunalabs.io/docs/playable/ad-networks/remote-debugging`;</script>' +
+    '<script>spectorScript.setAttribute("src","https://cdn.jsdelivr.net/npm/spectorjs@0.9.30/dist/spector.bundle.js");t.src="https://mrdoob.github.io/stats.js/build/stats.min.js";</script>' +
+    '<script>window.pi.apply(window,["unityads",1,2,"hash","https://collector.lunalabs.io/api/v1/stats/collect",null,3000,500,null,"https://collector.lunalabs.io/api/v1/stats/errors/collect"]||[])</script>' +
+    '<script>window.Luna = Luna;</script></body></html>';
+["applovin", "google", "mintegral", "pangle"].forEach(function (target) {
+    var converted = core.convert(telemetrySource, "luna", target, {});
+    assert.ok(converted.html.indexOf('["unityads",1,2,"hash",null,null,3000,500,null,null]') >= 0, target + ": pi endpoints must become null");
+    assert.strictEqual(/https?:\/\/[^"'`\s]*(lunalabs\.io|console\.re|jsdelivr\.net|mrdoob\.github\.io)/.test(converted.html), false, target + ": no Luna/debug URL may remain");
+    assert.ok(/analytics của Luna/.test(converted.notes.join(" ")), target + ": the UI note says what was removed");
+});
+var unityTelemetry = core.convert(telemetrySource, "luna", "unity", {});
+assert.ok(unityTelemetry.html.indexOf("https://collector.lunalabs.io/api/v1/stats/collect") >= 0, "Unity keeps Luna analytics");
+assert.strictEqual(unityTelemetry.notes.length, 0);
+assert.strictEqual(core.convert(source, "luna", "applovin", {}).notes.length, 0, "no note when there was nothing to remove");
+
+// AppLovin events fire once each. Luna dispatches luna:postrender on every frame and luna:start arrives
+// twice (Luna + the adapter), so forwarding them raw sent DISPLAYED ~60 times a second.
+var alListeners = {}, alDocListeners = {}, alEvents = [];
+var alContext = {
+    navigator: { userAgent: "android" },
+    document: { readyState: "complete", addEventListener: function (name, callback) { (alDocListeners[name] || (alDocListeners[name] = [])).push(callback); } },
+    Event: function (type) { this.type = type; },
+    Luna: { Unity: { Playable: {} } },
+    $environment: { packageConfig: { androidLink: "https://example.com/android" } },
+    ALPlayableAnalytics: { trackEvent: function (name) { alEvents.push(name); } },
+    addEventListener: function (name, callback) { (alListeners[name] || (alListeners[name] = [])).push(callback); },
+    dispatchEvent: function (event) { (alListeners[event.type] || []).forEach(function (callback) { callback(event); }); },
+    setTimeout: function (callback) { callback(); return 1; },
+    clearTimeout: function () {},
+    setInterval: setInterval,
+    clearInterval: clearInterval,
+    open: function () {}
+};
+alContext.window = alContext;
+vm.createContext(alContext);
+regex.lastIndex = 0;
+while ((match = regex.exec(core.convert(source, "luna", "applovin", {}).html))) vm.runInContext(match[1], alContext);
+function alFire(type) { alContext.dispatchEvent(new alContext.Event(type)); }
+function alTouch() { (alDocListeners.touchstart || []).forEach(function (callback) { callback({}); }); }
+alTouch();
+alFire("luna:build");
+alFire("luna:start");
+alFire("luna:started");
+for (var frame = 0; frame < 50; frame++) alFire("luna:postrender");
+alTouch();
+alTouch();
+alFire("luna:ended");
+alFire("luna:ended");
+alContext.Luna.Unity.Playable.InstallFullGame();
+assert.deepStrictEqual(alEvents, ["LOADING", "LOADED", "DISPLAYED", "CHALLENGE_STARTED", "ENDCARD_SHOWN", "CTA_CLICKED"]);
+
+console.log("luna telemetry removal + AppLovin event tests passed");

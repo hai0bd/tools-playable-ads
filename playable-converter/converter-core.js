@@ -635,7 +635,7 @@
         if (!NETWORKS[target]) throw new Error("Mạng đầu ra không được hỗ trợ: " + target);
         var serving = stripServingLayers(html);
         var result = convertBuild(serving.html, build, target, options);
-        result.notes = serving.removed.length ? ["Đã gỡ lớp phát hành Mintegral dính theo bản SocialPeta: " + serving.removed.join(", ")] : [];
+        result.notes = (serving.removed.length ? ["Đã gỡ lớp phát hành Mintegral dính theo bản SocialPeta: " + serving.removed.join(", ")] : []).concat(result.notes || []);
         return result;
     }
 
@@ -950,11 +950,31 @@
         out = removeLunaMintegralHooks(out, target);
         out = removeForeignNetworkSdks(out, target);
 
+        var telemetry = removeLunaExternalRequests(out, target);
+        out = telemetry.html;
+
         out = setMraidTag(out, target === "unity");
         out = replaceStoreUrls(out, options);
         out = configureGoogleExitApi(out, target);
         out = insertBeforeClosingBody(out, '<script data-playable-converter="luna-adapter">\n' + buildLunaAdapter(target, options) + "\n</script>");
-        return { html: out, warnings: warnings };
+        return { html: out, warnings: warnings, notes: telemetry.removed ? ["Đã gỡ analytics của Luna (collector.lunalabs.io) và URL công cụ debug để bản build không gọi ra ngoài"] : [] };
+    }
+
+    // Luna gửi sự kiện về collector.lunalabs.io qua window.pi; AppLovin từ chối asset vì "makes external
+    // requests" (đo: 21 request trong 12 giây). Endpoint là tham số của pi.apply — để null thì pi tự bỏ
+    // qua fetch ("no endpoint URL is provided"). Ba URL debug chỉ tải khi có ?spector / ?fps / token
+    // console.re, nhưng vẫn gỡ vì bộ duyệt có thể quét chuỗi tĩnh. Giữ nguyên cho Unity: Luna thuộc Unity
+    // và bản build gốc cấu hình sẵn "unityads".
+    function removeLunaExternalRequests(html, target) {
+        if (target === "unity") return { html: html, removed: false };
+        var out = html
+            .replace(/"https?:\/\/collector\.lunalabs\.io\/[^"]*"/g, "null")
+            .replace(/"https?:\/\/cdn\.jsdelivr\.net\/npm\/spectorjs[^"]*"/g, '""')
+            .replace(/"https?:\/\/mrdoob\.github\.io\/stats\.js\/[^"]*"/g, '""')
+            .replace(/"https?:\/\/console\.re\/connector\.js"/g, '""')
+            .replace(/https?:\/\/(console\.re\/\$\{)/g, "$1")
+            .replace(/https?:\/\/(docs\.lunalabs\.io\/)/g, "$1");
+        return { html: out, removed: out !== html };
     }
 
     function removeLunaMintegralHooks(html, target) {
@@ -997,9 +1017,15 @@
             '    window.addEventListener("luna:build", _pcBindInstall);',
             '    _pcBindInstall();'
         ];
+        // Mỗi sự kiện chỉ gửi một lần: Luna phát luna:postrender ở MỌI khung hình (đo: 185 khung hình →
+        // 187 lần DISPLAYED) và luna:start đến hai lần (Luna + _pcLunaStart bên dưới).
         if (target === "applovin") lines.push(
-            '    var _pcAlEvents = { "luna:start": "LOADING", "luna:started": "LOADED", "luna:postrender": "DISPLAYED" };',
-            '    Object.keys(_pcAlEvents).forEach(function (eventName) { window.addEventListener(eventName, function () { if (window.ALPlayableAnalytics && typeof window.ALPlayableAnalytics.trackEvent === "function") window.ALPlayableAnalytics.trackEvent(_pcAlEvents[eventName]); }); });'
+            '    var _pcAlSent = {};',
+            '    function _pcTrackOnce(name) { if (_pcAlSent[name]) return; _pcAlSent[name] = true; if (window.ALPlayableAnalytics && typeof window.ALPlayableAnalytics.trackEvent === "function") window.ALPlayableAnalytics.trackEvent(name); }',
+            '    var _pcAlEvents = { "luna:start": "LOADING", "luna:started": "LOADED", "luna:postrender": "DISPLAYED", "luna:ended": "ENDCARD_SHOWN" };',
+            '    Object.keys(_pcAlEvents).forEach(function (eventName) { window.addEventListener(eventName, function () { _pcTrackOnce(_pcAlEvents[eventName]); }); });',
+            '    function _pcFirstInput() { if (_pcAlSent.DISPLAYED) _pcTrackOnce("CHALLENGE_STARTED"); }',
+            '    if (window.document && typeof document.addEventListener === "function") { document.addEventListener("touchstart", _pcFirstInput, true); document.addEventListener("mousedown", _pcFirstInput, true); }'
         );
         if (target !== "mintegral") lines.push(
             '    var _pcLunaStartSent = false, _pcLunaResumed = false;',
