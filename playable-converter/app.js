@@ -2,7 +2,11 @@
     "use strict";
 
     var core = window.PlayableConverter;
-    var state = { mode: "saygames", file: null, originalHtml: "", html: "", analysis: null, embeddedData: [], embeddedExpanded: false, kindFilter: "all", results: [], inlineReport: null };
+    var state = { mode: "saygames", file: null, originalHtml: "", html: "", analysis: null, embeddedData: [], kindFilter: "image", inlineReport: null, docs: [], active: -1, bundleName: "playables" };
+    // Nhiều file: state.docs giữ từng file; các trường file/originalHtml/html/inlineReport/mode ở trên là
+    // BẢN LÀM VIỆC của file đang chọn (docs[active]) — syncActive() chép ngược lại trước khi đổi file hay
+    // convert. Tab Asset nhúng / Mesh 3D / Scripts luôn sửa file đang chọn; tab Xuất chạy cho mọi file.
+    var KNOWN_BUILDS = ["saygames", "cocos-old", "luna", "super-html", "setup-config", "bingo", "threejs", "playsmart", "mindworks"];
 
     var elements = {
         steps: document.getElementById("steps"),
@@ -12,6 +16,8 @@
         fileInput: document.getElementById("file-input"),
         dropZone: document.getElementById("drop-zone"),
         clearFile: document.getElementById("clear-file"),
+        fileTabs: document.getElementById("file-tabs"),
+        fileTabList: document.getElementById("file-tab-list"),
         fileSummary: document.getElementById("file-summary"),
         fileName: document.getElementById("file-name"),
         fileMeta: document.getElementById("file-meta"),
@@ -31,7 +37,6 @@
         embeddedKinds: document.getElementById("embedded-kinds"),
         embeddedList: document.getElementById("embedded-list"),
         embeddedNotice: document.getElementById("embedded-notice"),
-        toggleEmbedded: document.getElementById("toggle-embedded"),
         resetEmbedded: document.getElementById("reset-embedded"),
         downloadEdited: document.getElementById("download-edited"),
         toggleTargets: document.getElementById("toggle-targets"),
@@ -51,14 +56,19 @@
     });
     if (elements.buildSelect) elements.buildSelect.addEventListener("change", function () { setMode(elements.buildSelect.value, true); });
     elements.fileInput.addEventListener("change", function () {
-        if (elements.fileInput.files[0]) loadFile(elements.fileInput.files[0]);
+        if (elements.fileInput.files.length) loadFiles(elements.fileInput.files);
     });
     elements.clearFile.addEventListener("click", clearFile);
     elements.convertButton.addEventListener("click", runConversion);
     elements.toggleTargets.addEventListener("click", toggleTargets);
     elements.targetInputs.forEach(function (input) { input.addEventListener("change", updateControls); });
     elements.saveAll.addEventListener("click", downloadAllZip);
-    elements.toggleEmbedded.addEventListener("click", toggleEmbeddedData);
+    // Ô "Tên (zip)" ở đầu: một file thì là tên zip của chính file đó; nhiều file thì là tên zip gộp chứa
+    // zip của từng biến thể (tên từng biến thể đặt ở hàng đầu mỗi nhóm kết quả).
+    elements.projectName.addEventListener("input", function () {
+        if (state.docs.length === 1) { state.docs[0].name = elements.projectName.value; renderResults(); }
+        else state.bundleName = elements.projectName.value;
+    });
     elements.resetEmbedded.addEventListener("click", resetEmbeddedData);
     elements.downloadEdited.addEventListener("click", downloadEditedHtml);
     if (elements.inlineRemote) elements.inlineRemote.addEventListener("click", inlineRemoteRefs);
@@ -77,8 +87,7 @@
         });
     });
     elements.dropZone.addEventListener("drop", function (event) {
-        var file = event.dataTransfer.files[0];
-        if (file) loadFile(file);
+        if (event.dataTransfer.files.length) loadFiles(event.dataTransfer.files);
     });
 
     function setMode(mode, manual) {
@@ -101,39 +110,82 @@
         if (!on) elements.panels.forEach(function (panel) { panel.hidden = true; });
     }
 
-    async function loadFile(file) {
-        if (!/\.html?$/i.test(file.name)) {
+    // Nạp thêm file vào danh sách (chọn nhiều file, hoặc bấm "Thêm file" sau đó). File vừa thêm đầu tiên
+    // thành file đang chọn.
+    async function loadFiles(fileList) {
+        var files = Array.from(fileList).filter(function (file) { return /\.html?$/i.test(file.name); });
+        elements.fileInput.value = "";
+        if (!files.length) {
             showModeWarning("Vui lòng chọn file HTML.");
             return;
         }
+        var firstNew = state.docs.length;
         try {
-            var html = await file.text();
-            state.file = file;
-            if (elements.projectName) elements.projectName.value = baseName(file.name);
-            state.inlineReport = null;
-            applyHtml(html);
-            showWorkspace(true);
-            setStep("output");
+            for (var i = 0; i < files.length; i++) {
+                var html = await files[i].text();
+                var build = core.analyze(html, files[i].name).build;
+                state.docs.push({
+                    file: files[i], name: uniqueDocName(baseName(files[i].name)),
+                    originalHtml: html, html: html, inlineReport: null, results: [],
+                    mode: KNOWN_BUILDS.indexOf(build) >= 0 ? build : state.mode
+                });
+            }
         } catch (error) {
             showModeWarning("Không đọc được file: " + error.message);
         }
+        if (state.docs.length === firstNew) return;
+        activate(firstNew);
+        showWorkspace(true);
+        setStep("output");
     }
 
-    // Dùng chung cho lúc nạp file và lúc vừa nhúng xong tham chiếu từ xa: cả hai đều phải
-    // phân tích lại từ đầu vì HTML đổi thì build, asset và script bên trong đều đổi theo.
+    function uniqueDocName(base) {
+        var clean = sanitizeName(base) || "playable", name = clean, n = 1;
+        while (state.docs.some(function (doc) { return doc.name === name; })) name = clean + " (" + (++n) + ")";
+        return name;
+    }
+
+    function cur() { return state.docs[state.active]; }
+
+    function syncActive() {
+        var doc = cur();
+        if (!doc) return;
+        doc.html = state.html;
+        doc.originalHtml = state.originalHtml;
+        doc.inlineReport = state.inlineReport;
+        doc.mode = state.mode;
+    }
+
+    // Đổi file đang chọn. Thay đổi đã "Áp dụng" được giữ theo từng file; nội dung đang gõ dở trong
+    // panel Mesh/Scripts mà chưa áp dụng thì mất, vì hai panel đó chỉ ôm một HTML.
+    function activate(index, skipSync) {
+        if (!skipSync) syncActive();
+        state.active = index;
+        var doc = cur();
+        state.file = doc.file;
+        state.inlineReport = doc.inlineReport;
+        openHtml(doc.originalHtml, doc.html, doc.mode);
+    }
+
+    // Dùng chung cho lúc vừa nhúng xong tham chiếu từ xa và lúc đổi sang tài liệu trong iframe: HTML đổi
+    // thì build, asset và script bên trong đều đổi theo nên phải phân tích lại từ đầu.
     function applyHtml(html) {
+        cur().results = [];
+        openHtml(html, html, null);
+    }
+
+    function openHtml(originalHtml, html, mode) {
         var name = state.file ? state.file.name : "";
-        state.originalHtml = html;
+        state.originalHtml = originalHtml;
         state.html = html;
         state.analysis = core.analyze(html, name);
         state.embeddedData = extractEmbedded(html);
         if (window.MeshPanel) MeshPanel.load(state.html, name);
         if (window.ScriptPanel) ScriptPanel.load(state.html, name);
-        state.embeddedExpanded = false;
-        state.kindFilter = "all";
+        state.kindFilter = "image";
         elements.embeddedNotice.hidden = true;
-        state.results = [];
-        if (["saygames", "cocos-old", "luna", "super-html", "setup-config", "bingo", "threejs", "playsmart", "mindworks"].indexOf(state.analysis.build) >= 0) setMode(state.analysis.build, false);
+        if (mode) setMode(mode, false);
+        else if (KNOWN_BUILDS.indexOf(state.analysis.build) >= 0) setMode(state.analysis.build, false);
         renderFile();
         renderResults();
         updateModeWarning();
@@ -240,7 +292,24 @@
         }
     }
 
+    // Bỏ một file bất kỳ (nút × trên tab). File đang chọn thì đi đường clearFile để nạp file kế bên.
+    function removeDoc(index) {
+        if (index === state.active) return clearFile();
+        state.docs.splice(index, 1);
+        if (index < state.active) state.active--;
+        renderFileTabs();
+        renderResults();
+        updateControls();
+    }
+
+    // Bỏ file đang chọn; còn file khác thì chuyển sang file kế bên, hết thì về màn hình thả file.
     function clearFile() {
+        state.docs.splice(state.active, 1);
+        if (state.docs.length) {
+            activate(Math.min(state.active, state.docs.length - 1), true);
+            return;
+        }
+        state.active = -1;
         state.file = null;
         state.inlineReport = null;
         if (elements.remoteNotice) elements.remoteNotice.hidden = true;
@@ -248,8 +317,6 @@
         state.html = "";
         state.analysis = null;
         state.embeddedData = [];
-        state.embeddedExpanded = false;
-        state.results = [];
         if (window.MeshPanel) MeshPanel.clear();
         if (window.ScriptPanel) ScriptPanel.clear();
         elements.fileInput.value = "";
@@ -257,6 +324,7 @@
         elements.fileSummary.hidden = true;
         elements.analysis.hidden = true;
         elements.clearFile.hidden = true;
+        elements.fileTabs.hidden = true;
         elements.modeWarning.hidden = true;
         elements.embeddedNotice.hidden = true;
         elements.embeddedCard.hidden = true;
@@ -273,6 +341,7 @@
         elements.analysis.hidden = false;
         elements.clearFile.hidden = false;
         elements.fileName.textContent = state.file.name;
+        renderFileTabs();
         renderEmbeddedData();
         elements.fileMeta.textContent = formatBytes(info.bytes) + " · " + info.scripts + " scripts";
         elements.analysisBuild.textContent = buildLabel(info.build);
@@ -299,6 +368,33 @@
         } else {
             elements.analysisEnd.textContent = "Chưa nhận diện";
         }
+    }
+
+    function renderFileTabs() {
+        if (document.activeElement !== elements.projectName) elements.projectName.value = state.docs.length === 1 ? state.docs[0].name : state.bundleName;
+        elements.fileTabs.hidden = state.docs.length < 2;
+        elements.fileTabList.innerHTML = "";
+        if (state.docs.length < 2) return;
+        state.docs.forEach(function (doc, index) {
+            var edited = index === state.active ? state.html !== state.originalHtml : doc.html !== doc.originalHtml;
+            var tab = document.createElement("div");
+            tab.className = "file-tab" + (index === state.active ? " active" : "");
+            var name = document.createElement("button");
+            name.type = "button";
+            name.className = "file-tab-name";
+            name.textContent = doc.name + (edited ? " •" : "");
+            name.title = doc.file.name + (edited ? " · đã sửa" : "");
+            name.addEventListener("click", function () { if (index !== state.active) activate(index); });
+            var close = document.createElement("button");
+            close.type = "button";
+            close.className = "file-tab-close";
+            close.textContent = "×";
+            close.title = "Xóa " + doc.file.name;
+            close.setAttribute("aria-label", close.title);
+            close.addEventListener("click", function () { removeDoc(index); });
+            tab.append(name, close);
+            elements.fileTabList.appendChild(tab);
+        });
     }
 
     function updateModeWarning() {
@@ -330,9 +426,11 @@
         data.forEach(function (item) {
             counts[item.kind] = (counts[item.kind] || 0) + 1;
         });
-        // Chỉ hiện tab có asset, để file ít loại không bị rối vì tab rỗng.
-        ["all"].concat(core.ASSET_KINDS).filter(function (k) { return counts[k]; })
-            .forEach(function (kind) {
+        // Chỉ hiện tab có asset, để file ít loại không bị rối vì tab rỗng. "Tất cả" đứng cuối: nó dựng
+        // mọi dòng cùng lúc nên là tab nặng nhất, còn ảnh là thứ được thay nhiều nhất.
+        var kinds = core.ASSET_KINDS.concat("all").filter(function (k) { return counts[k]; });
+        if (kinds.indexOf(state.kindFilter) < 0) state.kindFilter = kinds[0];
+        kinds.forEach(function (kind) {
                 var btn = document.createElement("button");
                 btn.type = "button";
                 btn.className = "kind-tab" + (state.kindFilter === kind ? " active" : "");
@@ -347,7 +445,6 @@
 
     function renderEmbeddedData() {
         // Ẩn kind "model" khỏi tab Asset nhúng — mesh đã thay ở tab Mesh 3D (tránh lặp).
-        if (state.kindFilter === "model") state.kindFilter = "all";
         var visibleData = state.embeddedData.filter(function (item) { return item.kind !== "model"; });
         elements.embeddedList.innerHTML = "";
         var base64Count = visibleData.filter(function (item) { return item.encoding === "base64"; }).length;
@@ -360,13 +457,7 @@
         var brotliCount = visibleData.filter(function (item) { return item.source === "luna-brotli"; }).length;
         if (brotliCount) elements.embeddedSummary.appendChild(makeCountPill("Nén Brotli (Luna)", brotliCount));
         elements.resetEmbedded.disabled = state.html === state.originalHtml;
-        var collapsed = !state.embeddedExpanded;
-        elements.embeddedCard.classList.toggle("is-collapsed", collapsed);
-        elements.toggleEmbedded.textContent = collapsed ? "Mở chi tiết" : "Thu gọn";
-        elements.toggleEmbedded.disabled = !visibleData.length;
-        elements.toggleEmbedded.setAttribute("aria-expanded", String(!collapsed));
-        if (elements.embeddedKinds) elements.embeddedKinds.hidden = collapsed || !visibleData.length;
-        if (collapsed) return;
+        if (elements.embeddedKinds) elements.embeddedKinds.hidden = !visibleData.length;
 
         if (!visibleData.length) {
             var empty = document.createElement("p");
@@ -377,7 +468,7 @@
         }
 
         renderKindTabs(visibleData);
-        var danhSach = state.kindFilter && state.kindFilter !== "all"
+        var danhSach = state.kindFilter !== "all"
             ? visibleData.filter(function (item) { return item.kind === state.kindFilter; })
             : visibleData;
 
@@ -699,7 +790,7 @@
             state.html = core.replaceEmbeddedData(state.html, id, replacement);
             state.analysis = core.analyze(state.html, state.file.name);
             state.embeddedData = extractEmbedded(state.html);
-            state.results = [];
+            cur().results = [];
             renderFile();
             renderResults();
             showEmbeddedNotice("Đã thay " + id + ". File convert tiếp theo sẽ dùng dữ liệu mới.", false);
@@ -729,17 +820,12 @@
         };
     }
 
-    function toggleEmbeddedData() {
-        state.embeddedExpanded = !state.embeddedExpanded;
-        renderEmbeddedData();
-    }
-
     function resetEmbeddedData() {
         if (!state.file) return;
         state.html = state.originalHtml;
         state.analysis = core.analyze(state.html, state.file.name);
         state.embeddedData = extractEmbedded(state.html);
-        state.results = [];
+        cur().results = [];
         renderFile();
         renderResults();
         showEmbeddedNotice("Đã khôi phục toàn bộ payload từ file gốc.", false);
@@ -760,7 +846,7 @@
         state.html = newHtml;
         state.analysis = core.analyze(newHtml, state.file ? state.file.name : "playable.html");
         state.embeddedData = extractEmbedded(newHtml);
-        state.results = [];
+        cur().results = [];
         var name = state.file ? state.file.name : "playable.html";
         if (source !== "mesh" && window.MeshPanel) MeshPanel.load(state.html, name);
         if (source !== "scripts" && window.ScriptPanel) ScriptPanel.load(state.html, name);
@@ -814,6 +900,7 @@
             input.disabled = builds.length > 0 && builds.indexOf(state.mode) < 0;
         });
         var selected = getTargets();
+        elements.convertButton.querySelector("span").textContent = state.docs.length > 1 ? "Convert " + state.docs.length + " playable" : "Convert playable";
         var available = elements.targetInputs.filter(function (input) { return !input.disabled; });
         elements.convertButton.disabled = !state.html || !selected.length;
         elements.toggleTargets.textContent = selected.length === available.length ? "Bỏ chọn tất cả" : "Chọn tất cả";
@@ -830,70 +917,113 @@
         return elements.targetInputs.filter(function (input) { return input.checked && !input.disabled; }).map(function (input) { return input.value; });
     }
 
+    // Mạng đích bị giới hạn theo kiểu build (data-builds, ví dụ Pangle) thì bỏ qua cho file không hợp.
+    function targetsFor(mode) {
+        return elements.targetInputs.filter(function (input) {
+            var builds = input.dataset.builds ? input.dataset.builds.split(",") : [];
+            return input.checked && (!builds.length || builds.indexOf(mode) >= 0);
+        }).map(function (input) { return input.value; });
+    }
+
+    // Convert MỌI file trong danh sách, mỗi file theo kiểu build của chính nó; mạng đích và Store URL dùng chung.
     function runConversion() {
-        var originalText = elements.convertButton.querySelector("span").textContent;
+        syncActive();
         elements.convertButton.disabled = true;
         elements.convertButton.querySelector("span").textContent = "Đang convert…";
         elements.saveNote.hidden = true;
         window.setTimeout(function () {
-            try {
-                state.results = core.convertAll(state.html, state.mode, getTargets(), {
-                    androidUrl: elements.androidUrl.value,
-                    iosUrl: elements.iosUrl.value
-                });
-                renderResults();
-            } catch (error) {
-                state.results = [];
-                renderResults();
-                showModeWarning("Convert thất bại: " + error.message);
-            } finally {
-                elements.convertButton.querySelector("span").textContent = originalText;
-                updateControls();
-            }
+            var failed = [];
+            state.docs.forEach(function (doc) {
+                try {
+                    doc.results = core.convertAll(doc.html, doc.mode, targetsFor(doc.mode), {
+                        androidUrl: elements.androidUrl.value,
+                        iosUrl: elements.iosUrl.value
+                    });
+                } catch (error) {
+                    doc.results = [];
+                    failed.push(doc.file.name + ": " + error.message);
+                }
+            });
+            renderResults();
+            if (failed.length) showModeWarning("Convert thất bại — " + failed.join(" · "));
+            updateControls();
         }, 40);
     }
 
+    function hasResults() { return state.docs.some(function (doc) { return doc.results.length; }); }
+
     function renderResults() {
         elements.resultList.innerHTML = "";
-        elements.emptyState.hidden = state.results.length > 0;
-        elements.saveAll.hidden = state.results.length === 0;
-        state.results.forEach(function (result) {
-            var item = document.createElement("article");
-            item.className = "result-item";
-
-            var logo = document.createElement("div");
-            logo.className = "result-logo";
-            logo.textContent = result.label.slice(0, 1).toUpperCase();
-
-            var copy = document.createElement("div");
-            copy.className = "result-copy";
-            var title = document.createElement("strong");
-            title.textContent = result.label;
-            var path = document.createElement("span");
-            path.textContent = projectName() + "/" + artifactName(result) + " · " + formatBytes(result.bytes);
-            var flags = document.createElement("div");
-            flags.className = "result-flags";
-            // Hiện ĐỦ mọi lỗi và cảnh báo. Trước đây chỉ lấy cái đầu tiên, nên thẻ ghi "3 cảnh báo"
-            // mà người dùng đọc được đúng một cái và không biết hai cái kia ở đâu.
-            var errorFlag = makeFlag(result.errors.length ? result.errors.length + " lỗi" : "JS OK", result.errors.length ? "bad" : "good");
-            if (result.errors.length) errorFlag.title = result.errors.join("\n");
-            flags.appendChild(errorFlag);
-            var warnFlag = makeFlag(result.warnings.length ? result.warnings.length + " cảnh báo" : "Adapter OK", result.warnings.length ? "warn" : "good");
-            if (result.warnings.length) warnFlag.title = result.warnings.join("\n");
-            flags.appendChild(warnFlag);
-            result.errors.forEach(function (message) { flags.appendChild(makeFlag(message, "bad")); });
-            result.warnings.forEach(function (message) { flags.appendChild(makeFlag(message, "warn")); });
-            (result.notes || []).forEach(function (message) { flags.appendChild(makeFlag(message, "good")); });
-            copy.append(title, path, flags);
-
-            var button = document.createElement("button");
-            button.className = "download-button";
-            var isZip = ZIP_NETWORKS[result.target];
-            button.textContent = isZip ? "Tải .zip" : "Tải HTML";
-            button.addEventListener("click", function () { (isZip ? downloadResultZip : downloadResult)(result); });
-            item.append(logo, copy, button);
-            elements.resultList.appendChild(item);
+        elements.emptyState.hidden = hasResults();
+        elements.saveAll.hidden = !hasResults();
+        state.docs.forEach(function (doc) {
+            if (!doc.results.length) return;
+            if (state.docs.length > 1) elements.resultList.appendChild(buildResultGroup(doc));
+            doc.results.forEach(function (result) { elements.resultList.appendChild(buildResultItem(doc, result)); });
         });
+    }
+
+    // Đầu mỗi biến thể: ô đặt tên (tên file zip, đồng thời là tiền tố của từng file bên trong) và nút tải
+    // zip riêng của biến thể đó. Gõ tới đâu doc.name đổi tới đó; rời ô mới vẽ lại để không mất con trỏ.
+    function buildResultGroup(doc) {
+        var group = document.createElement("div");
+        group.className = "result-group";
+        var label = document.createElement("label");
+        label.textContent = "Tên zip";
+        label.title = "Nguồn: " + doc.file.name;
+        var input = document.createElement("input");
+        input.type = "text";
+        input.value = doc.name;
+        input.spellcheck = false;
+        input.autocomplete = "off";
+        input.addEventListener("input", function () { doc.name = input.value; });
+        input.addEventListener("change", function () { renderResults(); renderFileTabs(); });
+        label.appendChild(input);
+        var button = document.createElement("button");
+        button.type = "button";
+        button.className = "secondary-button";
+        button.textContent = "Tải .zip";
+        button.addEventListener("click", function () { downloadDocZip(doc).then(function (name) { showSaved(name); }, showZipError); });
+        group.append(label, button);
+        return group;
+    }
+
+    function buildResultItem(doc, result) {
+        var item = document.createElement("article");
+        item.className = "result-item";
+
+        var logo = document.createElement("div");
+        logo.className = "result-logo";
+        logo.textContent = result.label.slice(0, 1).toUpperCase();
+
+        var copy = document.createElement("div");
+        copy.className = "result-copy";
+        var title = document.createElement("strong");
+        title.textContent = result.label;
+        var path = document.createElement("span");
+        path.textContent = (state.docs.length > 1 ? bundleName() + ".zip / " : "") + docName(doc) + ".zip / " + artifactName(doc, result) + " · " + formatBytes(result.bytes);
+        var flags = document.createElement("div");
+        flags.className = "result-flags";
+        // Hiện ĐỦ mọi lỗi và cảnh báo. Trước đây chỉ lấy cái đầu tiên, nên thẻ ghi "3 cảnh báo"
+        // mà người dùng đọc được đúng một cái và không biết hai cái kia ở đâu.
+        var errorFlag = makeFlag(result.errors.length ? result.errors.length + " lỗi" : "JS OK", result.errors.length ? "bad" : "good");
+        if (result.errors.length) errorFlag.title = result.errors.join("\n");
+        flags.appendChild(errorFlag);
+        var warnFlag = makeFlag(result.warnings.length ? result.warnings.length + " cảnh báo" : "Adapter OK", result.warnings.length ? "warn" : "good");
+        if (result.warnings.length) warnFlag.title = result.warnings.join("\n");
+        flags.appendChild(warnFlag);
+        result.errors.forEach(function (message) { flags.appendChild(makeFlag(message, "bad")); });
+        result.warnings.forEach(function (message) { flags.appendChild(makeFlag(message, "warn")); });
+        (result.notes || []).forEach(function (message) { flags.appendChild(makeFlag(message, "good")); });
+        copy.append(title, path, flags);
+
+        var button = document.createElement("button");
+        button.className = "download-button";
+        var isZip = ZIP_NETWORKS[result.target];
+        button.textContent = isZip ? "Tải .zip" : "Tải HTML";
+        button.addEventListener("click", function () { (isZip ? downloadResultZip : downloadResult)(result, artifactName(doc, result)); });
+        item.append(logo, copy, button);
+        return item;
     }
 
     function makeFlag(text, type) {
@@ -904,8 +1034,8 @@
         return flag;
     }
 
-    function downloadResult(result) {
-        downloadHtml(result.html, result.target + ".html");
+    function downloadResult(result, filename) {
+        downloadHtml(result.html, filename);
     }
 
     function downloadHtml(html, filename) {
@@ -935,15 +1065,17 @@
         return String(name || "").replace(/\.html?$/i, "");
     }
 
-    function projectName() {
-        var typed = elements.projectName ? sanitizeName(elements.projectName.value) : "";
-        if (typed) return typed;
-        if (state.file) return sanitizeName(baseName(state.file.name)) || "playable";
-        return "playable";
+    function docName(doc) {
+        return sanitizeName(doc.name) || "playable";
     }
 
-    function artifactName(result) {
-        return result.target + (ZIP_NETWORKS[result.target] ? ".zip" : ".html");
+    function bundleName() {
+        return sanitizeName(state.bundleName) || "playables";
+    }
+
+    // Mỗi biến thể một zip <tên>.zip, bên trong từng mạng là <tên>_<mạng>.
+    function artifactName(doc, result) {
+        return docName(doc) + "_" + result.target + (ZIP_NETWORKS[result.target] ? ".zip" : ".html");
     }
 
     // Nén DEFLATE thô bằng CompressionStream sẵn có của trình duyệt.
@@ -980,35 +1112,60 @@
         return core.assembleZip([{ name: "index.html", data: htmlBytes, deflated: deflated }], new Date());
     }
 
-    function downloadResultZip(result) {
+    function downloadResultZip(result, filename) {
         buildNetworkZip(result).then(function (bytes) {
-            downloadBlob(new Blob([bytes], { type: "application/zip" }), result.target + ".zip");
+            downloadBlob(new Blob([bytes], { type: "application/zip" }), filename);
         }, function (error) {
             showModeWarning("Không tạo được zip: " + error.message);
         });
     }
 
-    // Gộp mọi mạng đã convert thành 1 file <tên>.zip: mraid-network -> <target>.html,
-    // Google/Mintegral -> <target>.zip lồng (store, vì đã nén rồi). Chạy trên mọi trình duyệt.
-    async function downloadAllZip() {
-        if (!state.results.length) return;
-        try {
-            var files = [];
-            for (var i = 0; i < state.results.length; i++) {
-                var result = state.results[i];
-                if (ZIP_NETWORKS[result.target]) {
-                    files.push({ name: result.target + ".zip", bytes: await buildNetworkZip(result), tryDeflate: false });
-                } else {
-                    files.push({ name: result.target + ".html", bytes: core.utf8Bytes(result.html), tryDeflate: true });
-                }
+    // Zip của MỘT biến thể: mraid-network -> <tên>_<mạng>.html, Google/Mintegral -> <tên>_<mạng>.zip lồng
+    // (store, vì đã nén rồi).
+    async function buildDocZip(doc) {
+        var files = [];
+        for (var i = 0; i < doc.results.length; i++) {
+            var result = doc.results[i];
+            if (ZIP_NETWORKS[result.target]) {
+                files.push({ name: artifactName(doc, result), bytes: await buildNetworkZip(result), tryDeflate: false });
+            } else {
+                files.push({ name: artifactName(doc, result), bytes: core.utf8Bytes(result.html), tryDeflate: true });
             }
-            downloadBlob(await buildZip(files), projectName() + ".zip");
-            elements.saveNote.textContent = "Đã tải " + projectName() + ".zip (" + files.length + " mạng).";
-            elements.saveNote.hidden = false;
-        } catch (error) {
-            elements.saveNote.textContent = "Không tạo được zip: " + error.message;
-            elements.saveNote.hidden = false;
         }
+        return buildZip(files);
+    }
+
+    async function downloadDocZip(doc) {
+        downloadBlob(await buildDocZip(doc), docName(doc) + ".zip");
+        return docName(doc) + ".zip";
+    }
+
+    // Một file: tải thẳng zip của file đó. Nhiều file: một zip gộp chứa <tên biến thể>.zip của từng biến
+    // thể (store, vì bên trong đã nén).
+    async function downloadAllZip() {
+        var docs = state.docs.filter(function (doc) { return doc.results.length; });
+        if (!docs.length) return;
+        try {
+            if (state.docs.length === 1) return showSaved(await downloadDocZip(docs[0]));
+            var files = [];
+            for (var d = 0; d < docs.length; d++) {
+                files.push({ name: docName(docs[d]) + ".zip", bytes: new Uint8Array(await (await buildDocZip(docs[d])).arrayBuffer()), tryDeflate: false });
+            }
+            downloadBlob(await buildZip(files), bundleName() + ".zip");
+            showSaved(bundleName() + ".zip", docs.length + " biến thể");
+        } catch (error) {
+            showZipError(error);
+        }
+    }
+
+    function showSaved(name, detail) {
+        elements.saveNote.textContent = "Đã tải " + name + (detail ? " (" + detail + ")" : "") + ".";
+        elements.saveNote.hidden = false;
+    }
+
+    function showZipError(error) {
+        elements.saveNote.textContent = "Không tạo được zip: " + error.message;
+        elements.saveNote.hidden = false;
     }
 
     function buildLabel(build) {

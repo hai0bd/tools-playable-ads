@@ -21,9 +21,9 @@
         <!-- FILE BAR -->
         <section class="filebar">
             <label class="drop-zone" id="drop-zone" for="file-input">
-                <input id="file-input" type="file" accept=".html,text/html" hidden>
+                <input id="file-input" type="file" accept=".html,text/html" multiple hidden>
                 <span class="upload-icon">⇧</span>
-                <strong>Kéo file HTML vào đây</strong>
+                <strong>Kéo một hoặc nhiều file HTML vào đây</strong>
                 <span>hoặc bấm để chọn file</span>
                 <small>File được xử lý hoàn toàn trên máy của bạn</small>
             </label>
@@ -40,7 +40,12 @@
                     <div><span>Kết thúc</span><strong id="analysis-end">—</strong></div>
                     <div><span>Chuột PC</span><strong id="analysis-mouse">—</strong></div>
                 </div>
+                <label class="text-button file-add" for="file-input">+ Thêm file</label>
                 <button class="text-button" id="clear-file" hidden>Xóa file</button>
+            </div>
+            <div class="file-tabs" id="file-tabs" hidden>
+                <div class="file-tab-list" id="file-tab-list"></div>
+                <small>Asset nhúng, Mesh 3D và Scripts sửa file đang chọn · Xuất và đóng gói chạy cho tất cả file · di chuột vào tab để xóa file.</small>
             </div>
             <div class="notice warning" id="mode-warning" hidden></div>
             <div class="notice remote" id="remote-notice" hidden>
@@ -69,7 +74,6 @@
                     <h2>Base64 / Base122 trong file</h2>
                 </div>
                 <div class="embedded-heading-actions">
-                    <button class="text-button" id="toggle-embedded" type="button" aria-expanded="false">Mở chi tiết</button>
                     <button class="text-button" id="reset-embedded" type="button">Khôi phục</button>
                     <button class="secondary-button" id="download-edited" type="button">Tải HTML đã sửa</button>
                 </div>
@@ -287,13 +291,13 @@
                         </select>
                     </label>
 
-                    <details class="advanced-options">
-                        <summary>Store URL tùy chọn</summary>
+                    <div class="store-links">
+                        <span class="store-links-title">Link store mới <small>áp cho mọi file · để trống = giữ link trong file</small></span>
                         <div class="url-fields">
                             <label>Android URL<input id="android-url" type="url" placeholder="Giữ URL trong file gốc"></label>
                             <label>iOS URL<input id="ios-url" type="url" placeholder="Giữ URL trong file gốc"></label>
                         </div>
-                    </details>
+                    </div>
 
                     <button class="primary-button" id="convert-button" disabled>
                         <span>Convert playable</span><span class="arrow">→</span>
