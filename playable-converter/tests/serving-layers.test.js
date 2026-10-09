@@ -130,4 +130,28 @@ function runCta(adapter, ctaName) {
 assert.deepStrictEqual(runCta(MindWorks.buildAdapter("mintegral", { androidUrl: "https://x.test/a" }), "_pcMwCta"), ["https://x.test/a"]);
 assert.deepStrictEqual(runCta(PlaySmart.buildAdapter("mintegral", { androidUrl: "https://x.test/p" }), "_pcPsCta"), ["https://x.test/p"]);
 
+// ── 6. Lớp MindWorks offline bản mới: script nằm dưới sp_opera/<hash>/js/ (đo trên creative
+//      "Sticker Book: Coloring Puzzle"). Khớp theo TÊN FILE nên gỡ được khi còn ở dạng <script src>.
+var OFFLINE_SRC = [
+    "js/webAudioCheck.js",
+    "https://sp2cdn-idea-global.zingfront.com/sp_opera/5dcc43027f19f3dd2026f717b8f369d9/js/mw_config.js",
+    "https://sp2cdn-idea-global.zingfront.com/sp_opera/5dcc43027f19f3dd2026f717b8f369d9/js/package_loading.js",
+    "https://sp2cdn-idea-global.zingfront.com/sp_opera/5dcc43027f19f3dd2026f717b8f369d9/js/mtg_offline_package.js",
+    "https://sp2cdn-idea-global.zingfront.com/sp_opera/mobvista_playable_js/DynamicLoader.js"
+];
+var offlinePage = "<html><head>" + OFFLINE_SRC.map(function (src) { return script("", ' src="' + src + '"'); }).join("") +
+    "</head><body>" + script("window.resMap={};") + "</body></html>";
+var offlineStripped = core.stripServingLayers(offlinePage);
+OFFLINE_SRC.forEach(function (src) {
+    assert.ok(offlineStripped.html.indexOf(src) < 0, "phải gỡ thẻ: " + src);
+});
+assert.strictEqual(offlineStripped.removed.length, OFFLINE_SRC.length, "mỗi thẻ một nhãn: " + offlineStripped.removed.join(" | "));
+// Nhãn KHÔNG kèm URL (máy quét link ngoài của Mindworks đọc cả comment).
+assert.ok(offlineStripped.html.indexOf("zingfront.com") < 0, "comment dấu vết không mang URL");
+
+// Nhưng URL dạng hash trần ở CÙNG thư mục phải giữ: đó có thể là SDK MOF mà build PlaySmart cần.
+var bareHash = "https://sp2cdn-idea-global.zingfront.com/sp_opera/af22e3c6f0c952cf029bd19ddee0b762.js";
+assert.ok(core.stripServingLayers("<html><body>" + script("", ' src="' + bareHash + '"') + "</body></html>").html.indexOf(bareHash) >= 0,
+    "không gỡ theo hash trần — SDK của PlaySmart nằm cùng thư mục");
+
 console.log("serving-layers tests passed");

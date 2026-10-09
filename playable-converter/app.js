@@ -6,7 +6,7 @@
     // Nhiều file: state.docs giữ từng file; các trường file/originalHtml/html/inlineReport/mode ở trên là
     // BẢN LÀM VIỆC của file đang chọn (docs[active]) — syncActive() chép ngược lại trước khi đổi file hay
     // convert. Tab Asset nhúng / Mesh 3D / Scripts luôn sửa file đang chọn; tab Xuất chạy cho mọi file.
-    var KNOWN_BUILDS = ["saygames", "cocos-old", "luna", "super-html", "setup-config", "bingo", "threejs", "playsmart", "mindworks"];
+    var KNOWN_BUILDS = ["saygames", "cocos-old", "luna", "super-html", "setup-config", "bingo", "threejs", "playsmart", "mindworks", "onesoft"];
 
     var elements = {
         steps: document.getElementById("steps"),
@@ -365,6 +365,8 @@
             elements.analysisEnd.textContent = "ps.gameEnd → window.gameEnd";
         } else if (info.build === "mindworks") {
             elements.analysisEnd.textContent = "gameEndHandle → window.gameEnd";
+        } else if (info.build === "onesoft") {
+            elements.analysisEnd.textContent = "Config.onEndGame → window.gameEnd" + (info.onesoftVersion ? " · bản " + info.onesoftVersion : "");
         } else {
             elements.analysisEnd.textContent = "Chưa nhận diện";
         }
@@ -1169,7 +1171,7 @@
     }
 
     function buildLabel(build) {
-        return ({ "saygames": "SayGames", "cocos-old": "Cocos build cũ", "luna": "Luna", "super-html": "Super HTML", "setup-config": "setupConfig", "bingo": "Bingo", "threejs": "Three.js (AVK)", "playsmart": "PlaySmart / QICI", "mindworks": "MindWorks / Mintegral", "unknown": "Không xác định" })[build] || build;
+        return ({ "saygames": "SayGames", "cocos-old": "Cocos build cũ", "luna": "Luna", "super-html": "Super HTML", "setup-config": "setupConfig", "bingo": "Bingo", "threejs": "Three.js (AVK)", "playsmart": "PlaySmart / QICI", "mindworks": "MindWorks / Mintegral", "onesoft": "ONESOFT", "unknown": "Không xác định" })[build] || build;
     }
 
     function networkLabel(network) {

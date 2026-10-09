@@ -28,6 +28,12 @@
         // Bingo (app đóng gói riêng): có hàm CTA bingoPlayableApiDemo, hoặc khai báo __zipEncoding mà
         // không có API super_html. Rule chuyển đổi nằm ở bingo-core.js (registerBuild).
         if (/\bbingoPlayableApiDemo\b/.test(html) || (/window\.__zipEncoding\s*=/.test(html) && !/super[-_ ]?html/i.test(html))) return "bingo";
+        // ONESOFT (Falcon Squad / Galaxiga / 1945 / Sticker Book): Cocos Creator 2.4 + packer riêng đổ
+        // asset base64 vào `window.resMap` (không nén zip) và framework playable gom toàn bộ cấu hình
+        // vào module Config: PlayableAdsType + linkAndroid/linkiOS. Rule chuyển đổi ở onesoft-core.js.
+        // Phải đứng TRƯỚC các luật đoán theo dấu vết runtime: build này mang sẵn nhánh cho mọi mạng
+        // (mraid.open, dapi, window.install, ExitApi…) nên luật nào đọc dấu vết cũng đoán nhầm.
+        if (isOnesoft(html)) return "onesoft";
         if (/super[-_ ]?html/i.test(html)) return "super-html";
         // Chỉ nhận Luna qua dấu hiệu do trình build sinh ra. Chuỗi "luna" trần
         // hay khớp ngẫu nhiên bên trong khối base64 của asset.
@@ -95,6 +101,45 @@
         return /\bvar\s+playableSource\s*=/.test(html) && /\bavk_play_class\b/.test(html);
     }
 
+    /* ───────────── build ONESOFT: packer window.resMap + module Config ─────────────
+     * Hai dấu hiệu phải đi CÙNG nhau:
+     *   - window.resMap = { "<đường dẫn>": "<base64|json>" }  → do packer sinh, thay chỗ của gói zip;
+     *     loader tự viết (loadBundle/loadImg/loadDomAudio) đọc thẳng từ map này.
+     *   - this.PlayableAdsType = this.<Mạng>                  → do framework playable của studio sinh.
+     * Chỉ `resMap` thì có thể là packer khác; chỉ `PlayableAdsType` thì có thể là build đã bung asset.
+     */
+    var ONESOFT_RESMAP = /\bwindow\s*\.\s*resMap\s*=\s*\{/;
+    var ONESOFT_TYPE = /\bthis\.PlayableAdsType\s*=\s*this\.([A-Za-z_]\w*)/;
+
+    function isOnesoft(html) {
+        return ONESOFT_RESMAP.test(html) && ONESOFT_TYPE.test(html);
+    }
+
+    // Enum của module Config (IronSource=1 … Yandex=12) → tên mạng của tool. Dùng cả hai chiều:
+    // đọc mạng nguồn ở đây, ghi mạng đích trong onesoft-core.js.
+    var ONESOFT_NETWORK = {
+        IronSource: "ironsource", Unity: "unity", Adwords: "google", Applovin: "applovin",
+        Facebook: "facebook", Adcolony: "adcolony", Mintegral: "mintegral", Vungle: "vungle",
+        Maio: "maio", Pangle: "pangle", Moloco: "moloco", Yandex: "yandex"
+    };
+
+    function detectOnesoftNetwork(html, filename) {
+        var match = html.match(ONESOFT_TYPE);
+        var name = match && ONESOFT_NETWORK[match[1]];
+        return name || networkFromFilename(filename);
+    }
+
+    // Config.version ("6h24") là số hiệu bản template của studio, hữu ích để đối chiếu hai creative
+    // trông giống nhau nhưng khác bản build.
+    function readOnesoftVersion(html) {
+        var at = html.search(ONESOFT_TYPE);
+        if (at < 0) return "";
+        // version được khai báo trong CÙNG constructor, ngay trước PlayableAdsType.
+        var head = html.slice(Math.max(0, at - 2000), at);
+        var match = head.match(/\bthis\.version\s*=\s*["']([^"']*)["']/);
+        return match ? match[1] : "";
+    }
+
     // Giá trị playableSource cho từng mạng đầu ra, theo đúng các bản studio đang chạy ("mr" = MRAID chung
     // cho AppLovin). Template không có nhánh Pangle, và bản cũ không có nhánh "gg": giá trị lạ rơi xuống dò
     // TJ_API → dapi → mraid → BrowserClientAPI, adapter lo phần CTA.
@@ -115,6 +160,9 @@
         // Build AVK chứa lớp MintegralClientAPI (window.install && window.install()) ở mọi mạng, nên phải
         // đọc playableSource trước khi các rule chung phía dưới đoán nhầm thành Mintegral.
         if (isThreejsAvk(html)) return detectThreejsNetwork(html, filename);
+        // Build ONESOFT cũng mang đủ nhánh của mọi mạng (window.install, mraid.open, dapi…) trong code
+        // game, nên mạng thật chỉ đọc được ở Config.PlayableAdsType.
+        if (isOnesoft(html)) return detectOnesoftNetwork(html, filename);
         // Nội dung file luôn đáng tin hơn tên file: tên do người đặt, còn các
         // dấu hiệu dưới đây do chính trình build của network sinh ra.
         var match = html.match(/\bspNetwork\s*=\s*['"]([^'"]+)['"]/);
@@ -156,6 +204,7 @@
             superHtmlVersion: build === "super-html" ? detectSuperHtmlVersion(html) : "unknown",
             zipEncoding: build === "super-html" || build === "bingo" ? detectZipEncoding(html) : "unknown",
             avkProduct: build === "threejs" ? readAvkProduct(html) : "",
+            onesoftVersion: build === "onesoft" ? readOnesoftVersion(html) : "",
             stageQueueLength: stageQueue.length,
             gameManagers: gameManagers
         };
@@ -637,6 +686,8 @@
         var result = convertBuild(serving.html, build, target, options);
         result.notes = (serving.removed.length ? ["Đã gỡ lớp phát hành Mintegral dính theo bản SocialPeta: " + serving.removed.join(", ")] : []).concat(result.notes || []);
         result.html = replaceMwStoreUrl(result.html, options);
+        result.html = replaceConfigStoreLinks(result.html, options);
+        result.html = replaceServeStoreLinks(result.html, options);
         var stale = staleStoreLinks(result.html, options);
         if (stale.length) result.warnings.push("Còn link store cũ trong file: " + stale.join(" , "));
         return result;
@@ -656,6 +707,39 @@
             out = out.replace(regex, function (all, head, quote) { return head + quote + escapeJsString(value) + quote; });
         });
         return out;
+    }
+
+    /* Ô chứa link store, ngoài MW_CONFIG.store_url ở trên. Cũng thay cho MỌI build vì cùng lý do:
+     * link cũ còn sót là lỗi nặng nhất khi dùng lại playable cho game khác.
+     *
+     *   this.linkAndroid / this.linkiOS  — module Config của build ONESOFT. Đây là đường CTA SỐNG:
+     *     openLinkApp() đọc thẳng hai biến này rồi đưa cho mraid.open / window.open / mraid.openStore.
+     *   OMG.ins_url / OMG.clickUrl       — tham số serve-time của lớp Zingfront (PlaySmart và lớp vỏ
+     *     iframe MW_PLFRAME đều có). playsmart-core.js gỡ cả khối OMG, nhưng chỉ khi build là playsmart;
+     *     mọi build khác trước đây để nguyên nên link app gốc còn nằm trong file.
+     */
+    function replaceConfigStoreLinks(html, options) {
+        var android = String(options.androidUrl || "").trim(), ios = String(options.iosUrl || "").trim();
+        if (!android && !ios) return html;
+        // Hàm thay thế (không phải chuỗi) → "$" trong URL là ký tự thường, không cần nhân đôi.
+        // Chỉ một link được nhập thì điền cho cả hai: linkiOS của nhiều bản là chuỗi rỗng, để trống
+        // nghĩa là CTA chết trên iOS.
+        return html.replace(/(\bthis\.link(Android|iOS)\s*=\s*)(["'])[^"']*\3/g, function (all, head, which, quote) {
+            var next = which === "iOS" ? (ios || android) : (android || ios);
+            return head + quote + escapeJsString(next) + quote;
+        });
+    }
+
+    function replaceServeStoreLinks(html, options) {
+        var android = String(options.androidUrl || "").trim(), ios = String(options.iosUrl || "").trim();
+        if (!android && !ios) return html;
+        return html.replace(/(\b(?:ins_url|clickUrl)["']?\s*:\s*)(["'])([^"']*)\2/g, function (all, head, quote, old) {
+            // Chỉ thay khi giá trị cũ ĐANG là link store. Ô trống là chỗ mạng tự điền lúc serve, còn
+            // macro tracking ({CLICK_URL}, …) hay URL đo lường thì ghim link store vào là làm sai click.
+            if (!findStoreLinks(old).length) return all;
+            var next = /\b(?:apps|itunes)\.apple\.com/i.test(old) ? (ios || android) : (android || ios);
+            return head + quote + escapeJsString(next) + quote;
+        });
     }
 
     var STORE_LINK_RE =/(?:https?:\/\/(?:play\.google\.com\/store\/apps\/details\?id=|(?:apps|itunes)\.apple\.com\/)|market:\/\/details\?id=)[^\s"'`\\<>)%]*/g;
@@ -685,6 +769,7 @@
         if (build === "bingo") throw new Error("Cần nạp bingo-core.js để chuyển đổi build Bingo.");
         if (build === "playsmart") throw new Error("Cần nạp playsmart-core.js để chuyển đổi build PlaySmart.");
         if (build === "mindworks") throw new Error("Cần nạp mindworks-core.js để chuyển đổi build MindWorks.");
+        if (build === "onesoft") throw new Error("Cần nạp onesoft-core.js để chuyển đổi build ONESOFT.");
         throw new Error("Chưa có rule chuyển đổi cho kiểu build này.");
     }
 
@@ -1447,7 +1532,20 @@
      * Luật NEO vào đầu script và có trần kích thước: code game hay nhắc lại tên biến của SDK (runtime
      * PlaySmart đọc window.MW_CONFIG), khớp lỏng giữa thân script là xoá nhầm cả game mà vẫn báo thành công.
      */
-    var SERVING_SRC = /rayjump\.com\/(?:hyplug|util)\/|zingfront\.com\/sp_opera\/(?:mobvista_playable_js\/|js\/web-audio-check\.js)/i;
+    /* Chỉ khớp theo TÊN FILE cụ thể, không khớp `sp_opera/<hash>.js` dạng băm trần: ở cùng thư mục đó
+     * còn có SDK MOF của PlaySmart (af22e3c6…js) — gỡ theo hash là xoá luôn SDK mà build PlaySmart cần.
+     * Lớp MindWorks offline bản mới đặt script dưới `sp_opera/<hash>/js/`:
+     *   mw_config.js          — MW_CONFIG của chiến dịch GỐC (tên/icon/store_url). Bản inline được bọc
+     *                           lại để giữ cờ channel; bản ngoài thì không đọc được nội dung, mà
+     *                           Mintegral luôn chèn MW_CONFIG mới lúc serve và preview_util tự tạo bản
+     *                           tối thiểu nếu thiếu → gỡ là lựa chọn đúng.
+     *   package_loading.js    — trang loading vẽ tên + icon app gốc, chỉ tắt khi có PLAYABLE:gameStart.
+     *   mtg_offline_package.js— lớp gói offline, đòi MTG_OFFLINE_PACKAGE.init().
+     *   webAudioCheck.js      — giữ AudioContext ở suspended tới khi có MW_gameStartCheck(): game câm.
+     * webAudioCheck.js cũng hay được nhúng bằng đường dẫn tương đối `js/webAudioCheck.js` (bản tải về
+     * không có file đó → 404), nên khớp cả dạng không tên miền.
+     */
+    var SERVING_SRC = /rayjump\.com\/(?:hyplug|util)\/|zingfront\.com\/sp_opera\/(?:mobvista_playable_js\/|[0-9a-f]{8,}\/js\/(?:mw_config|package_loading|mtg_offline_package|web-?audio-?check)\.js|js\/web-audio-check\.js)|(?:^|\/)js\/web-?audio-?check\.js(?:[?#]|$)/i;
     var BABEL_HEAD = /^"use strict";\s*var _typeof\s*=/;
 
     // UMD của webpack: !function(e,t){"object"==typeof exports&&…define("Tên",[],t)… — tên nằm ngay đầu.
@@ -1769,6 +1867,9 @@
         detectSourceNetwork: detectSourceNetwork,
         detectBingoNetwork: detectBingoNetwork,
         detectZipEncoding: detectZipEncoding,
+        isOnesoft: isOnesoft,
+        detectOnesoftNetwork: detectOnesoftNetwork,
+        readOnesoftVersion: readOnesoftVersion,
         registerBuild: registerBuild,
         // Mở cho module build ngoài (playsmart-core.js) dùng đúng một bộ luật CTA với các build có sẵn.
         targetClickCode: targetClickCode,

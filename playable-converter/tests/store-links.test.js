@@ -46,4 +46,31 @@ var mw = core.convert(withMwConfig, "luna", "google", NEW);
 assert.ok(/ios: "https:\/\/apps\.apple\.com\/app\/id999"/.test(mw.html) && /android: "https:\/\/play\.google\.com\/store\/apps\/details\?id=com\.new\.game"/.test(mw.html));
 assert.strictEqual(staleWarnings(mw).length, 0);
 
+// Config.linkAndroid / Config.linkiOS (ONESOFT build) are the LIVE CTA slots, and they ride along on a
+// file converted under any build type, so they are replaced for every build like MW_CONFIG.store_url.
+var withConfigLinks = '<!doctype html><html><body><script>var s=function(){this.linkAndroid="' + OLD_ANDROID + '",this.linkiOS="' + OLD_IOS + '"};window.Luna = Luna;</script></body></html>';
+var configLinks = core.convert(withConfigLinks, "luna", "unity", NEW);
+assert.ok(configLinks.html.indexOf('this.linkAndroid="' + NEW.androidUrl + '"') >= 0);
+assert.ok(configLinks.html.indexOf('this.linkiOS="' + NEW.iosUrl + '"') >= 0);
+assert.strictEqual(staleWarnings(configLinks).length, 0);
+
+// OMG.ins_url / OMG.clickUrl are the Zingfront serve-time slots. They sit on the outer shell of a
+// MW_PLFRAME creative too, where no build rule used to touch them — the leak reported on a real file.
+var omg = 'var OMG = { imp_url: "", ins_url: "' + OLD_IOS + '", clickUrl: "' + OLD_IOS + '", config: "" }';
+var serve = core.convert('<!doctype html><html><body><script>' + omg + '</script><script>window.Luna = Luna;</script></body></html>', "luna", "applovin", NEW);
+assert.ok(serve.html.indexOf('ins_url: "' + NEW.iosUrl + '"') >= 0, "an App Store slot takes the new iOS link");
+assert.ok(serve.html.indexOf('clickUrl: "' + NEW.iosUrl + '"') >= 0);
+assert.strictEqual(staleWarnings(serve).length, 0);
+
+// A Play Store value in the same slot takes the Android link instead; an empty slot stays empty
+// because the network fills it at serve time.
+var serveAndroid = core.convert('<!doctype html><html><body><script>var OMG = { imp_url: "", ins_url: "' + OLD_ANDROID + '", clickUrl: "" }</script><script>window.Luna = Luna;</script></body></html>', "luna", "applovin", NEW);
+assert.ok(serveAndroid.html.indexOf('ins_url: "' + NEW.androidUrl + '"') >= 0);
+assert.ok(serveAndroid.html.indexOf('clickUrl: ""') >= 0, "an empty serve-time slot is left alone");
+
+// A slot holding a tracking macro or a measurement URL is not a store link: writing one in would
+// break click reporting, so only a value that already IS a store link gets replaced.
+var macro = core.convert('<!doctype html><html><body><script>var OMG = { ins_url: "{CLICK_URL}", clickUrl: "https://e.axon.ai/1.0/event/gi?clcode=X" }</script><script>window.Luna = Luna;</script></body></html>', "luna", "applovin", NEW);
+assert.ok(macro.html.indexOf('ins_url: "{CLICK_URL}"') >= 0 && macro.html.indexOf("clcode=X") >= 0, "non-store values are left alone");
+
 console.log("store link replacement tests passed");
