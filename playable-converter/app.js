@@ -74,19 +74,29 @@
     if (elements.inlineRemote) elements.inlineRemote.addEventListener("click", inlineRemoteRefs);
     if (elements.useInnerDoc) elements.useInnerDoc.addEventListener("click", useInnerDocument);
 
+    // Cả trang nhận kéo thả HTML, kể cả khi đã có file (thả thêm biến thể mà không phải bấm "Thêm file").
+    // Ô thả model của tab Mesh 3D (.mesh-drop) tự xử lý phần của nó nên bỏ qua ở đây.
+    function isFileDrag(event) {
+        var types = event.dataTransfer && event.dataTransfer.types;
+        if (!types || Array.prototype.indexOf.call(types, "Files") < 0) return false;
+        return !(event.target && event.target.closest && event.target.closest(".mesh-drop"));
+    }
+    function setDragging(on) {
+        elements.dropZone.classList.toggle("dragging", on);
+    }
     ["dragenter", "dragover"].forEach(function (eventName) {
-        elements.dropZone.addEventListener(eventName, function (event) {
+        window.addEventListener(eventName, function (event) {
+            if (!isFileDrag(event)) return setDragging(false);
             event.preventDefault();
-            elements.dropZone.classList.add("dragging");
+            setDragging(true);
         });
     });
-    ["dragleave", "drop"].forEach(function (eventName) {
-        elements.dropZone.addEventListener(eventName, function (event) {
-            event.preventDefault();
-            elements.dropZone.classList.remove("dragging");
-        });
-    });
-    elements.dropZone.addEventListener("drop", function (event) {
+    // relatedTarget rỗng = con trỏ rời hẳn cửa sổ; dragleave giữa các phần tử con thì bỏ qua để khỏi nháy.
+    window.addEventListener("dragleave", function (event) { if (!event.relatedTarget) setDragging(false); });
+    window.addEventListener("drop", function (event) {
+        setDragging(false);
+        if (!isFileDrag(event)) return;
+        event.preventDefault();
         if (event.dataTransfer.files.length) loadFiles(event.dataTransfer.files);
     });
 
