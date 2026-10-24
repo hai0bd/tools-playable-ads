@@ -1387,9 +1387,10 @@
     function setMraidTag(html, needed) {
         var out = html.replace(/\s*<script\b[^>]*\bsrc\s*=\s*["']mraid\.js["'][^>]*>\s*<\/script>/gi, "");
         if (!needed) return out;
-        var anchor = /<head\b[^>]*>/i.exec(out) || /<html\b[^>]*>/i.exec(out);
+        // Thẻ <head>/<html> phải là của tài liệu — xem findTagOutsideScripts.
+        var anchor = findTagOutsideScripts(out, /<head\b[^>]*>/gi) || findTagOutsideScripts(out, /<html\b[^>]*>/gi);
         if (!anchor) return '<script src="mraid.js"></script>\n' + out;
-        var at = anchor.index + anchor[0].length;
+        var at = anchor.at + anchor.length;
         return out.slice(0, at) + '\n\t<script src="mraid.js"></script>' + out.slice(at);
     }
 
@@ -1514,7 +1515,10 @@
         out = out.replace(/\s*<meta\b[^>]*name\s*=\s*["']ad\.orientation["'][^>]*>/gi, "");
         if (target !== "google") return out;
         var tags = '\n    <meta name="ad.orientation" content="portrait,landscape">\n    <script type="text/javascript" src="https://tpc.googlesyndication.com/pagead/gadgets/html5/api/exitapi.js"></script>';
-        return /<\/head>/i.test(out) ? out.replace(/<\/head>/i, tags + "\n</head>") : tags + "\n" + out;
+        // </head> phải là của tài liệu, và cắt bằng slice để $& $` $' trong tags không bị diễn giải.
+        var anchor = findTagOutsideScripts(out, /<\/head\s*>/gi);
+        if (!anchor) return tags + "\n" + out;
+        return out.slice(0, anchor.at) + tags + "\n" + out.slice(anchor.at);
     }
 
     /* ───────────── lớp PHÁT HÀNH của Mintegral trong bản tải từ SocialPeta ─────────────
@@ -1667,12 +1671,42 @@
         return html.replace(/\s*<script\b[^>]*data-playable-converter=["'][^"']+["'][^>]*>[\s\S]*?<\/script>/gi, "");
     }
 
-    // Hàm thay thế chứ không phải chuỗi: content có thể chứa $& $` $' $1 (URL store, code adapter,
-    // payload nhúng) mà String.replace coi là ký hiệu — $' chèn lại cả phần đuôi chuỗi đích.
+    /* ───────────── neo thẻ cấu trúc: phải là thẻ của TÀI LIỆU, không phải của một chuỗi JS ─────────────
+     * Creative tải từ SocialPeta hay kèm script container của Google (Closure). Script đó dựng iframe
+     * bằng cách ghép nguyên một tài liệu HTML trong chuỗi JS: "<html><head></head><body></body></html>".
+     * Nghĩa là <head>, </head>, </body> ĐẦU TIÊN của file có thể nằm giữa thân một script.
+     *
+     * Chèn vào đó là vỡ cú pháp script: dấu " trong data-playable-converter="…" đóng chuỗi sớm
+     * (triệu chứng thật đã gặp: "Unexpected identifier 'luna'"). Nên mọi chỗ chèn phải lọc qua đây.
+     */
+    function scriptRanges(html) {
+        var ranges = [], regex = /<script\b[^>]*>[\s\S]*?<\/script>/gi, match;
+        while ((match = regex.exec(html))) ranges.push([match.index, match.index + match[0].length]);
+        return ranges;
+    }
+
+    // Vị trí thẻ khớp `regex` nằm ngoài mọi <script>; pickLast = lấy thẻ cuối thay vì thẻ đầu.
+    // Trả về { at, length } hoặc null. `regex` phải có cờ `g`.
+    function findTagOutsideScripts(html, regex, pickLast) {
+        var ranges = scriptRanges(html), found = null, match;
+        regex.lastIndex = 0;
+        while ((match = regex.exec(html))) {
+            var at = match.index, inside = false;
+            for (var k = 0; k < ranges.length; k++) {
+                if (at >= ranges[k][0] && at < ranges[k][1]) { inside = true; break; }
+            }
+            if (inside) continue;
+            found = { at: at, length: match[0].length };
+            if (!pickLast) break;
+        }
+        return found;
+    }
+
+    // Cắt bằng slice chứ không replace: $& $` $' $1 trong content bị String.replace hiểu là ký hiệu.
     function insertBeforeClosingBody(html, content) {
-        return /<\/body>/i.test(html)
-            ? html.replace(/<\/body>/i, function () { return content + "\n</body>"; })
-            : html + "\n" + content;
+        var found = findTagOutsideScripts(html, /<\/body\s*>/gi, true);
+        if (!found) return html + "\n" + content;
+        return html.slice(0, found.at) + content + "\n" + html.slice(found.at);
     }
 
     function readSayGamesStageQueue(html) {

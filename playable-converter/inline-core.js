@@ -185,10 +185,23 @@
      * String.replace coi chúng là ký hiệu — `$'` chèn lại toàn bộ phần đuôi chuỗi đích, làm file
      * 3,8 MB phồng thành 164 MB. Hàm thay thế không diễn giải ký hiệu nào.
      */
+    // Chèn trước thẻ </body> CUỐI CÙNG nằm NGOÀI mọi <script>. Hai cái bẫy ở đây:
+    //   1. Script container của Google nhúng sẵn cả một tài liệu HTML trong chuỗi JS, nên
+    //      </body> ĐẦU TIÊN của file có thể nằm giữa chuỗi đó — chèn vào là vỡ cú pháp script.
+    //   2. Cắt bằng slice chứ không replace: $& $` $' $1 trong content bị String.replace hiểu là ký hiệu.
     function insertBeforeBodyEnd(html, content) {
-        return /<\/body>/i.test(html)
-            ? html.replace(/<\/body>/i, function () { return content + "\n</body>"; })
-            : html + "\n" + content;
+        var ranges = [], re = /<script\b[^>]*>[\s\S]*?<\/script>/gi, m;
+        while ((m = re.exec(html))) ranges.push([m.index, m.index + m[0].length]);
+        var body = /<\/body\s*>/gi, at = -1;
+        while ((m = body.exec(html))) {
+            var i = m.index, inside = false;
+            for (var k = 0; k < ranges.length; k++) {
+                if (i >= ranges[k][0] && i < ranges[k][1]) { inside = true; break; }
+            }
+            if (!inside) at = i;
+        }
+        if (at < 0) return html + "\n" + content;
+        return html.slice(0, at) + content + "\n" + html.slice(at);
     }
 
     // `al_renderHtml({"html":"…"})` → trả về chuỗi HTML bên trong.
