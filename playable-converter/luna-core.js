@@ -433,7 +433,7 @@
                 });
             });
         });
-        return { engine: "luna", html: html, jsons: jsons, blobs: blobs, schema: schema, meshes: meshes };
+        return { engine: "luna", html: html, jsons: jsons, blobs: blobs, schema: schema, link: linkSchema(code), meshes: meshes };
     }
 
     // ── dựng mesh mới ──
@@ -678,6 +678,259 @@
         return mesh;
     }
 
+    // ───────────────────────── texture gắn với mesh ─────────────────────────
+    /* Scene/prefab nối mesh → ảnh qua 3 tầng: MeshFilter [tag, meshId] + MeshRenderer bên cạnh
+       (hoặc SkinnedMeshRenderer tự giữ cả mesh lẫn material) → material [tag, matId] → material
+       textureParameters [[tên, tag, texId]] → ảnh <img id="assets/bundles/<b>/<texId><ext||.png>">.
+       Tham chiếu chiếm 2 ô (tag, id) nên field kế tiếp nhảy 2. Index field đọc từ runtime như mesh. */
+    var DEFAULT_LINK = {
+        material: { textureParameters: 8, vectorParameters: 7 },
+        meshFilter: { sharedMesh: 0 },
+        meshRenderer: { sharedMaterial: 3, sharedMaterials: 5 },
+        skinned: { sharedMesh: 0, sharedMaterial: 9, sharedMaterials: 11 },
+        texture: { name: 0, width: 1, height: 2, mipmapCount: 3 }
+    };
+    var LINK_DTO = {
+        material: "Assets.Material", meshFilter: "Components.MeshFilter", meshRenderer: "Components.MeshRenderer",
+        skinned: "Components.SkinnedMeshRenderer", texture: "Textures.Texture2D"
+    };
+    var MAIN_TEX = ["_MainTex", "_BaseMap", "_BaseColorMap", "_Albedo", "_MainTexture"];
+
+    function linkSchema(code) {
+        var out = {};
+        Object.keys(DEFAULT_LINK).forEach(function (k) {
+            var def = DEFAULT_LINK[k], f = code && code.match(new RegExp("[\"']Luna\\.Unity\\.DTO\\.UnityEngine\\." + LINK_DTO[k].replace(".", "\\.") + "[\"']\\s*:\\s*\\{([^}]*)\\}"));
+            var map = f ? parseFieldMap(f[1]) : {};
+            out[k] = Object.keys(def).every(function (n) { return map[n] != null; }) ? map : def;
+        });
+        return out;
+    }
+
+    // Mọi asset có id trong các bundle.json → { asset, jsonKey, bundle }, theo loại.
+    function assetsById(jsons, type) {
+        var out = {};
+        Object.keys(jsons).forEach(function (key) {
+            var m = key.match(/^assets\/bundles\/(-?\d+)\/bundle\.json$/), json = jsons[key];
+            if (!m || !json || !Array.isArray(json[type])) return;
+            json[type].forEach(function (a) { if (a && a.id != null) out[a.id] = { asset: a, jsonKey: key, bundle: m[1] }; });
+        });
+        return out;
+    }
+
+    function isRef(data, at, ids) { return Array.isArray(data) && typeof data[at] === "number" && ids.hasOwnProperty(data[at + 1]); }
+
+    // Mọi renderer trong scene + prefab: { data, f (field map), meshId, jsonKey }.
+    function findRenderers(analysis) {
+        var S = analysis.link, meshIds = {}, mats = assetsById(analysis.jsons, "materials"), out = [];
+        analysis.meshes.forEach(function (m) { meshIds[m.id] = true; });
+        function visit(node, jsonKey) {
+            if (Array.isArray(node)) { node.forEach(function (n) { visit(n, jsonKey); }); return; }
+            if (!node || typeof node !== "object") return;
+            if (Array.isArray(node.components)) {
+                var comps = node.components.map(function (c) { return c && c.data; });
+                comps.forEach(function (d, i) {
+                    if (isRef(d, S.skinned.sharedMesh, meshIds) && Array.isArray(d[S.skinned.sharedMaterials])) {
+                        out.push({ data: d, f: S.skinned, meshId: d[S.skinned.sharedMesh + 1], jsonKey: jsonKey });
+                    } else if (isRef(d, S.meshFilter.sharedMesh, meshIds) && d.length <= S.meshFilter.sharedMesh + 2) {
+                        var r = comps.filter(function (o, j) { return j !== i && Array.isArray(o) && Array.isArray(o[S.meshRenderer.sharedMaterials]) && isRef(o, S.meshRenderer.sharedMaterial, mats); })[0];
+                        if (r) out.push({ data: r, f: S.meshRenderer, meshId: d[S.meshFilter.sharedMesh + 1], jsonKey: jsonKey });
+                    }
+                });
+            }
+            Object.keys(node).forEach(function (k) { if (k !== "components" && typeof node[k] === "object") visit(node[k], jsonKey); });
+        }
+        Object.keys(analysis.jsons).forEach(function (key) {
+            var json = analysis.jsons[key];
+            if (!json || !/bundle\.json$/.test(key)) return;
+            ["scenes", "prefabs"].forEach(function (t) { if (Array.isArray(json[t])) visit(json[t], key); });
+        });
+        return out;
+    }
+
+    function rendererMaterials(r) {
+        var list = r.data[r.f.sharedMaterials] || [], ids = [];
+        for (var k = 0; k + 1 < list.length; k += 2) if (list[k + 1] != null) ids.push(list[k + 1]);
+        if (!ids.length && r.data[r.f.sharedMaterial + 1] != null) ids.push(r.data[r.f.sharedMaterial + 1]);
+        return ids;
+    }
+
+    function mainTexParam(mat, S) {
+        var params = (mat.data || [])[S.material.textureParameters] || [];
+        for (var i = 0; i < MAIN_TEX.length; i++) for (var j = 0; j < params.length; j++) if (params[j][0] === MAIN_TEX[i]) return j;
+        for (var k = 0; k < params.length; k++) if (params[k][2] != null) return k;
+        return -1;
+    }
+
+    function textureKey(tex) { return "assets/bundles/" + tex.bundle + "/" + tex.asset.id + (tex.asset.ext || ".png"); }
+
+    /**
+     * Material + texture chính mà mesh #meshIndex đang dùng (qua mọi renderer trỏ tới nó).
+     * → { renderers, materials: [{ id, name, path, texture: {id,key,label,width,height}|null,
+     *      otherRenderers: số renderer KHÁC mesh này cùng dùng material, otherMaterials: số material khác cùng texture }] }
+     */
+    function meshTextureInfo(analysis, meshIndex) {
+        var mesh = analysis.meshes[meshIndex], S = analysis.link;
+        if (!mesh) throw new Error("Không có mesh #" + meshIndex);
+        var renderers = findRenderers(analysis), mats = assetsById(analysis.jsons, "materials"), texs = assetsById(analysis.jsons, "textures");
+        var mine = renderers.filter(function (r) { return r.meshId === mesh.id; });
+        var matIds = [];
+        mine.forEach(function (r) { rendererMaterials(r).forEach(function (id) { if (matIds.indexOf(id) < 0 && mats[id]) matIds.push(id); }); });
+        var materials = matIds.map(function (id) {
+            var mat = mats[id].asset, p = mainTexParam(mat, S), param = p >= 0 ? mat.data[S.material.textureParameters][p] : null;
+            var tex = param && texs[param[2]], texInfo = null;
+            if (tex) {
+                var td = tex.asset.data || [];
+                var otherMats = Object.keys(mats).filter(function (mid) {
+                    if (+mid === id) return false;
+                    return ((mats[mid].asset.data || [])[S.material.textureParameters] || []).some(function (q) { return q[2] === tex.asset.id; });
+                }).length;
+                texInfo = { id: tex.asset.id, key: textureKey(tex), label: labelOf({ path: tex.asset.path, name: td[S.texture.name] }, textureKey(tex)), width: td[S.texture.width], height: td[S.texture.height], otherMaterials: otherMats };
+            }
+            return {
+                id: id, name: (mat.data || [])[0] || mat.name || "", path: mat.path || "", param: param ? param[0] : null, texture: texInfo,
+                otherRenderers: renderers.filter(function (r) { return r.meshId !== mesh.id && rendererMaterials(r).indexOf(id) >= 0; }).length
+            };
+        });
+        return { renderers: mine.length, materials: materials };
+    }
+
+    function nextFreeId(jsons) {
+        var max = 0;
+        (function walk(x) {
+            if (Array.isArray(x)) { x.forEach(walk); return; }
+            if (!x || typeof x !== "object") return;
+            if (typeof x.id === "number" && x.id > max) max = x.id;
+            for (var k in x) if (typeof x[k] === "object") walk(x[k]);
+        })(jsons);
+        return Math.max(max + 1, 990100);
+    }
+
+    function mipCount(w, h, old) { return old > 1 ? Math.floor(Math.log2(Math.max(w, h))) + 1 : 1; }
+
+    // Thuộc tính base122 (data-b122) có thể chứa ">" thô → bỏ qua nội dung trong nháy.
+    var IMG_TAG = /<img\b(?:[^>"]|"[^"]*")*>/gi;
+    function imgTagRange(html, key) {
+        var re = new RegExp(IMG_TAG.source, "gi"), m;
+        while ((m = re.exec(html))) {
+            var id = (m[0].match(/\sid\s*=\s*"([^"]*)"/i) || [])[1];
+            if (id === key) return { start: m.index, end: m.index + m[0].length };
+        }
+        return null;
+    }
+    function lastTextureImgEnd(html) {
+        var re = new RegExp(IMG_TAG.source, "gi"), m, end = -1;
+        while ((m = re.exec(html))) if (/\sid\s*=\s*"assets\/bundles\//i.test(m[0])) end = m.index + m[0].length;
+        return end;
+    }
+    // Ảnh của texture dưới dạng data URI (để xem trước): src="data:…" hoặc data-src122/data-b122 thô.
+    function textureDataUri(html, key) {
+        var range = imgTagRange(html, key);
+        if (!range) return null;
+        var tag = html.slice(range.start, range.end);
+        var src = (tag.match(/\ssrc\s*=\s*"(data:[^"]*)"/i) || [])[1];
+        if (src) return src;
+        var b = tag.match(/\sdata-(src122|b122)\s*=\s*"([^"]*)"/i);
+        if (!b) return null;
+        var mime = (tag.match(b[1] === "b122" ? /\sdata-b122m\s*=\s*"([^"]*)"/i : /\sdata-mime\s*=\s*"([^"]*)"/i) || [])[1] || (b[1] === "b122" ? "image/jpeg" : "image/png");
+        var raw = b[2].replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&amp;/g, "&");
+        try { return "data:" + mime + ";base64," + Conv.encodeBase64Bytes(Conv.decodeBase122Bytes(raw)); } catch (e) { return null; }
+    }
+    function imgTag(key, dataUri) { return '<img crossorigin="" id="' + key + '" src="' + dataUri + '">'; }
+
+    /**
+     * Gắn ảnh mới làm texture chính cho mesh #meshIndex.
+     *   image = { dataUri, width, height }
+     *   mode "own" (mặc định): tạo texture + bản sao material riêng, chỉ renderer của mesh này trỏ sang
+     *     → mesh khác dùng chung material/atlas cũ không bị đổi.
+     *   mode "overwrite": thay luôn ảnh của texture cũ → MỌI thứ dùng texture đó đổi theo.
+     */
+    function applyMeshTexture(analysis, meshIndex, image, mode) {
+        var mesh = analysis.meshes[meshIndex], S = analysis.link;
+        if (!mesh) throw new Error("Không có mesh #" + meshIndex);
+        if (!image || !/^data:image\//.test(image.dataUri || "")) throw new Error("Texture mới phải là data URI ảnh.");
+        var info = meshTextureInfo(analysis, meshIndex);
+        if (!info.renderers) throw new Error("Không tìm thấy renderer nào dùng mesh #" + meshIndex + " trong scene/prefab.");
+        var mats = assetsById(analysis.jsons, "materials"), texs = assetsById(analysis.jsons, "textures");
+        var html = analysis.html, dirty = {}, notes = [];
+
+        function setDims(texAsset) {
+            var d = texAsset.data;
+            d[S.texture.width] = image.width; d[S.texture.height] = image.height;
+            d[S.texture.mipmapCount] = mipCount(image.width, image.height, d[S.texture.mipmapCount]);
+        }
+
+        if (mode === "overwrite") {
+            var done = {};
+            info.materials.forEach(function (m) {
+                if (!m.texture || done[m.texture.id]) return;
+                done[m.texture.id] = true;
+                var tex = texs[m.texture.id], range = imgTagRange(html, m.texture.key);
+                setDims(tex.asset); dirty[tex.jsonKey] = true;
+                var tag = imgTag(m.texture.key, image.dataUri);
+                if (range) html = html.slice(0, range.start) + tag + html.slice(range.end);
+                else { var at = lastTextureImgEnd(html); if (at < 0) throw new Error("Không tìm thấy chỗ đặt ảnh texture trong HTML."); html = html.slice(0, at) + "\n" + tag + html.slice(at); }
+            });
+            if (!Object.keys(done).length) throw new Error("Material của mesh này không có texture để ghi đè — dùng chế độ texture riêng.");
+            notes.push("ghi đè " + Object.keys(done).length + " texture (mọi mesh dùng chung đổi theo)");
+        } else {
+            var nextId = nextFreeId(analysis.jsons);
+            var srcMat = mats[info.materials[0] && info.materials[0].id];
+            if (!srcMat) throw new Error("Renderer của mesh #" + meshIndex + " không có material.");
+            var oldTexRef = info.materials.filter(function (m) { return m.texture; })[0];
+            var oldTex = oldTexRef ? texs[oldTexRef.texture.id] : null;
+            var texBundle = oldTex ? oldTex.bundle : mats[srcMat.asset.id].bundle;
+            var texJsonKey = oldTex ? oldTex.jsonKey : srcMat.jsonKey, texJson = analysis.jsons[texJsonKey];
+            var texBase = (mesh.name || "mesh") + "_tex";
+            // Texture mới: chép cờ (format, filter, wrap, sRGB…) của texture cũ để shader đọc như cũ.
+            var newTex = {
+                id: nextId++, type: oldTex ? oldTex.asset.type : 0, path: "Assets/_Replaced/" + texBase + ".png", assetBundleId: +texBundle,
+                data: oldTex ? oldTex.asset.data.slice() : [texBase, 0, 0, 1, 1, 1, 0, 4, 0, 0, 1, 8, 1, 0, 0, 0]
+            };
+            newTex.data[S.texture.name] = texBase;
+            setDims(newTex);
+            (texJson.textures = texJson.textures || []).push(newTex);
+            dirty[texJsonKey] = true;
+            var key = "assets/bundles/" + texBundle + "/" + newTex.id + ".png";
+            var at = oldTexRef ? (imgTagRange(html, oldTexRef.texture.key) || {}).end : undefined;
+            if (at == null) at = lastTextureImgEnd(html);
+            if (at == null || at < 0) { at = html.lastIndexOf("</body>"); if (at < 0) throw new Error("Không tìm thấy chỗ đặt ảnh texture trong HTML."); }
+            html = html.slice(0, at) + "\n" + imgTag(key, image.dataUri) + html.slice(at);
+
+            // Mỗi material của mesh → một bản sao trỏ sang texture mới; tiling/offset về 1,1,0,0
+            // vì UV của model mới phủ trọn ảnh.
+            var cloneOf = {};
+            info.materials.forEach(function (m) {
+                var src = mats[m.id], json = analysis.jsons[src.jsonKey];
+                var copy = JSON.parse(JSON.stringify(src.asset));
+                copy.id = nextId++;
+                copy.path = (src.asset.path || "Assets/_Replaced/" + m.name + ".mat").replace(/(\.mat)?$/i, "_" + (mesh.name || "mesh") + ".mat");
+                if (typeof copy.data[0] === "string") copy.data[0] = copy.data[0] + "_" + (mesh.name || "mesh");
+                var params = copy.data[S.material.textureParameters] = copy.data[S.material.textureParameters] || [];
+                var p = mainTexParam(copy, S);
+                if (p >= 0) params[p] = [params[p][0], params[p][1] != null ? params[p][1] : 1, newTex.id];
+                else { params.push(["_MainTex", 1, newTex.id]); notes.push("material " + m.name + " vốn không có texture — shader có thể không đọc ảnh"); }
+                var texName = params[p >= 0 ? p : params.length - 1][0];
+                (copy.data[S.material.vectorParameters] || []).forEach(function (v) { if (v[0] === texName + "_ST") { v[1] = 1; v[2] = 1; v[3] = 0; v[4] = 0; } });
+                json.materials.push(copy);
+                dirty[src.jsonKey] = true;
+                cloneOf[m.id] = copy.id;
+            });
+            findRenderers(analysis).forEach(function (r) {
+                if (r.meshId !== mesh.id) return;
+                var d = r.data, list = d[r.f.sharedMaterials] || [];
+                if (cloneOf[d[r.f.sharedMaterial + 1]] != null) d[r.f.sharedMaterial + 1] = cloneOf[d[r.f.sharedMaterial + 1]];
+                for (var k = 0; k + 1 < list.length; k += 2) if (cloneOf[list[k + 1]] != null) list[k + 1] = cloneOf[list[k + 1]];
+                dirty[r.jsonKey] = true;
+            });
+            notes.push("texture riêng #" + newTex.id + " + " + info.materials.length + " material sao chép cho " + info.renderers + " renderer");
+        }
+
+        Object.keys(dirty).forEach(function (k) { html = writePayload(html, k, utf8Encode(JSON.stringify(analysis.jsons[k]))); });
+        analysis.html = html;
+        mesh._texture = image.dataUri;
+        return { mesh: mesh, notes: notes };
+    }
+
     function serialize(analysis) { return analysis.html; }
 
     var meshBackend = {
@@ -685,6 +938,9 @@
         maxVertices: 16777215,
         analyzePlayable: analyzeMeshes,
         applyMeshReplacement: applyMeshReplacement,
+        meshTextureInfo: meshTextureInfo,
+        applyMeshTexture: applyMeshTexture,
+        textureDataUri: function (analysis, key) { return textureDataUri(analysis.html, key); },
         serialize: serialize
     };
 
@@ -702,6 +958,8 @@
         replaceText: replaceText,
         analyzeMeshes: analyzeMeshes,
         applyMeshReplacement: applyMeshReplacement,
+        meshTextureInfo: meshTextureInfo,
+        applyMeshTexture: applyMeshTexture,
         meshBackend: meshBackend,
         // nội bộ (tests)
         meshSchema: meshSchema,

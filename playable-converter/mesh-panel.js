@@ -27,6 +27,7 @@
         _autoAligned: false,
         selectedTexKey: null,
         newTexDataUri: null,
+        newTex: null,        // texture gắn cho mesh đang chọn {dataUri, width, height, source}
         anglesOld: { x: 0.5, y: 0.6 },
         anglesNew: { x: 0.5, y: 0.6 }
     };
@@ -38,6 +39,7 @@
         "object-controls", "model-object",
         "orient-controls", "auto-orient", "rot-x", "rot-y", "rot-z", "rot-reset", "orient-info",
         "fit-controls", "fit-size", "fit-stretch", "fit-info", "uv-match",
+        "tex-controls", "tex-old", "tex-new", "tex-info", "tex-drop", "tex-input", "tex-clear",
         "apply-button", "apply-note"
     ].forEach(function (id) { el[id] = $(id); });
     if (!el["mesh-body"]) return; // HTML mesh panel chưa nhúng -> bỏ qua
@@ -180,6 +182,7 @@
         state.selected = index; state.newModel = null; state.fullModel = null; state.newModelName = "";
         el["object-controls"].hidden = true;
         state.selectedTexKey = null; state.newTexDataUri = null;
+        state.newTex = null; el["uv-match"].disabled = false;
         var mesh = state.analysis.meshes[index];
         state.oldBounds = trisBounds(meshTriangles(mesh.geometry));
         state.oldPos = []; mesh.geometry.bundles.forEach(function (b) { b.pos.forEach(function (p) { state.oldPos.push(p); }); });
@@ -196,10 +199,89 @@
         state.anglesOld.x = 0.5; state.anglesOld.y = 0.6; state.anglesNew.x = 0.5; state.anglesNew.y = 0.6;
         drawMesh(el["viewer-old"], meshTriangles(mesh.geometry), state.anglesOld);
         var ctx = el["viewer-new"].getContext("2d"); ctx.clearRect(0, 0, el["viewer-new"].width, el["viewer-new"].height);
+        renderTexturePanel();
         updateApplyState();
         Array.prototype.forEach.call(el["mesh-grid"].children, function (c) {
             c.classList.toggle("selected", +c.getAttribute("data-index") === index);
         });
+    }
+
+    // ───────────────────────── texture của mesh ─────────────────────────
+    // Chỉ backend Luna biết đường mesh → renderer → material → texture (meshTextureInfo).
+    function thumb(box, uri, text) {
+        box.innerHTML = "";
+        if (uri) { var img = document.createElement("img"); img.src = uri; box.appendChild(img); }
+        else box.textContent = text || "—";
+    }
+    function renderTexturePanel() {
+        var backend = state.backend, box = el["tex-controls"];
+        if (!box) return;
+        if (!backend.meshTextureInfo || state.selected < 0) { box.hidden = true; return; }
+        var info;
+        try { info = backend.meshTextureInfo(state.analysis, state.selected); } catch (err) { box.hidden = true; return; }
+        box.hidden = false;
+        var main = info.materials.filter(function (m) { return m.texture; })[0];
+        thumb(el["tex-old"], main && backend.textureDataUri ? backend.textureDataUri(state.analysis, main.texture.key) : null, main ? "không xem được" : "không có texture");
+        thumb(el["tex-new"], state.newTex && state.newTex.dataUri, "chưa có");
+        el["tex-clear"].hidden = !state.newTex;
+        var lines = [];
+        if (!info.renderers) lines.push("⚠ Không thấy renderer nào dùng mesh này trong scene/prefab — không gắn texture được.");
+        info.materials.forEach(function (m) {
+            var t = m.texture;
+            lines.push("Material " + m.name + " → " + (t ? t.label.split(" — ")[0] + " " + t.width + "×" + t.height : "không có texture") +
+                (m.otherRenderers ? " · dùng chung với " + m.otherRenderers + " renderer khác" : "") +
+                (t && t.otherMaterials ? " · ảnh dùng chung với " + t.otherMaterials + " material khác" : ""));
+        });
+        if (state.newTex) {
+            lines.push("Texture mới: " + state.newTex.width + "×" + state.newTex.height + (state.newTex.note ? " (" + state.newTex.note + ")" : "") +
+                (state.newModel ? "" : " — chưa thả model mới: UV của mesh cũ đang trỏ vào atlas cũ, ảnh mới có thể bị lệch."));
+        }
+        el["tex-info"].textContent = lines.join("\n");
+        el["tex-drop"].hidden = !info.renderers;
+    }
+    function isPow2(n) { return n > 0 && (n & (n - 1)) === 0; }
+    function pow2(n) { var p = 1; while (p * 2 <= n) p *= 2; return Math.min(2048, (n - p) > p / 2 ? p * 2 : p); }
+    // Đọc ảnh → {dataUri,width,height}; cạnh không phải 2ⁿ (hoặc > 2048) đưa về 2ⁿ gần nhất để
+    // WebGL1 vẫn tạo được mipmap/wrap repeat như texture gốc.
+    function loadTexture(dataUri, source) {
+        return new Promise(function (resolve, reject) {
+            var img = new Image();
+            img.onload = function () {
+                var w = img.naturalWidth, h = img.naturalHeight;
+                if (isPow2(w) && isPow2(h) && w <= 2048 && h <= 2048) { resolve({ dataUri: dataUri, width: w, height: h, source: source }); return; }
+                var nw = pow2(w), nh = pow2(h), canvas = document.createElement("canvas");
+                canvas.width = nw; canvas.height = nh;
+                canvas.getContext("2d").drawImage(img, 0, 0, nw, nh);
+                var jpeg = /^data:image\/jpe?g/i.test(dataUri);
+                resolve({ dataUri: jpeg ? canvas.toDataURL("image/jpeg", 0.9) : canvas.toDataURL("image/png"), width: nw, height: nh, source: source, note: "đổi từ " + w + "×" + h });
+            };
+            img.onerror = function () { reject(new Error("Không đọc được ảnh")); };
+            img.src = dataUri;
+        });
+    }
+    function setNewTexture(tex) {
+        state.newTex = tex;
+        // UV model mới phủ trọn ảnh mới → không ép UV vào ô atlas cũ nữa.
+        if (tex && el["uv-match"].checked) { el["uv-match"].checked = false; if (state.newModel) refreshNewPreview(); }
+        el["uv-match"].disabled = !!tex;
+        renderTexturePanel();
+        updateApplyState();
+    }
+    function loadTextureFile(file) {
+        if (state.selected < 0) return;
+        var reader = new FileReader();
+        reader.onload = function () {
+            loadTexture(reader.result, file.name).then(setNewTexture, function (err) {
+                el["tex-info"].textContent = "Lỗi đọc ảnh: " + err.message;
+            });
+        };
+        reader.readAsDataURL(file);
+    }
+    // .glb có ảnh nhúng → tự gắn (trừ khi người dùng đã tự thả ảnh).
+    function useEmbeddedTexture(model) {
+        var im = model && model.images && model.images[0];
+        if (!im || !state.backend.meshTextureInfo || (state.newTex && state.newTex.source !== "glb")) return;
+        loadTexture(core.imageDataUri(im.bytes, im.mime), "glb").then(function (tex) { tex.note = "ảnh nhúng trong model" + (tex.note ? ", " + tex.note : ""); setNewTexture(tex); }, function () { });
     }
 
     // ───────────────────────── load model mới ─────────────────────────
@@ -211,6 +293,7 @@
             state.fullModel = model; state.newModelName = file.name;
             fillObjectPicker(model);
             useObject(-1);
+            useEmbeddedTexture(model);
         } catch (err) {
             state.newModel = null; state.fullModel = null;
             el["orient-controls"].hidden = true; el["fit-controls"].hidden = true; el["object-controls"].hidden = true;
@@ -244,6 +327,7 @@
         state.anglesNew.x = 0.5; state.anglesNew.y = 0.6;
         computeAutoOrient();
         refreshNewPreview();
+        if (state.newTex) renderTexturePanel();
     }
     function isIdent(m) { for (var i = 0; i < 9; i++) if (Math.abs(m[i] - [1, 0, 0, 0, 1, 0, 0, 0, 1][i]) > 1e-9) return false; return true; }
     function computeAutoOrient() {
@@ -309,7 +393,7 @@
     // ───────────────────────── apply → đẩy HTML về converter ─────────────────────────
     function updateApplyState() {
         var hasMeshChange = !!state.newModel && state.newModel.pos.length <= maxVerts();
-        el["apply-button"].disabled = !hasMeshChange;
+        el["apply-button"].disabled = !hasMeshChange && !state.newTex;
     }
     function applyEdit() {
         var analysis = state.analysis, changes = [], backend = state.backend;
@@ -320,6 +404,12 @@
                 analysis.meshes[state.selected]._edited = true;
                 changes.push("mesh #" + state.selected + (mm.submeshes > 1 ? " (" + mm.submeshes + " submesh" + (mm.replaceMode !== "1-1" ? ", fallback " + mm.replaceMode : "") + ")" : "") +
                     (mm.notes && mm.notes.length ? " — " + mm.notes.join(", ") : ""));
+            }
+            if (state.newTex && backend.applyMeshTexture) {
+                var mode = (document.querySelector('input[name="tex-mode"]:checked') || {}).value || "own";
+                var tr = backend.applyMeshTexture(analysis, state.selected, state.newTex, mode);
+                analysis.meshes[state.selected]._edited = true;
+                changes.push("texture " + state.newTex.width + "×" + state.newTex.height + " — " + tr.notes.join(", "));
             }
             if (!changes.length) return;
             var out = backend.serialize(analysis);
@@ -338,6 +428,8 @@
             el["fit-controls"].hidden = true; el["fit-info"].textContent = "";
             el["orient-controls"].hidden = true; el["orient-info"].textContent = "";
             state.modelRot = [1, 0, 0, 0, 1, 0, 0, 0, 1]; state._autoAligned = false;
+            state.newTex = null; el["uv-match"].disabled = false;
+            renderTexturePanel();
             var nctx = el["viewer-new"].getContext("2d"); nctx.clearRect(0, 0, el["viewer-new"].width, el["viewer-new"].height);
             updateApplyState();
             renderMeshGrid();
@@ -362,6 +454,8 @@
     el["mesh-filter"].addEventListener("input", function () { if (state.analysis) renderMeshGrid(); });
     el["model-object"].addEventListener("change", function () { useObject(+el["model-object"].value); });
     el["apply-button"].addEventListener("click", applyEdit);
+    wireDrop(el["tex-drop"], el["tex-input"], loadTextureFile);
+    el["tex-clear"].addEventListener("click", function () { setNewTexture(null); });
     el["fit-size"].addEventListener("change", function () { if (state.newModel) refreshNewPreview(); });
     el["fit-stretch"].addEventListener("change", function () { if (state.newModel) refreshNewPreview(); });
     el["uv-match"].addEventListener("change", function () { if (state.newModel) refreshNewPreview(); });
@@ -378,7 +472,7 @@
     // Không có mesh (hoặc không phải playable Cocos / Luna) -> hiện note, ẩn nội dung.
     function showMeshEmpty() {
         state.analysis = null; state.selected = -1; state.newModel = null; state.fullModel = null;
-        state.selectedTexKey = null; state.newTexDataUri = null;
+        state.selectedTexKey = null; state.newTexDataUri = null; state.newTex = null;
         if (el["mesh-body"]) el["mesh-body"].hidden = true;
         if (el["mesh-empty"]) el["mesh-empty"].hidden = false;
     }
@@ -403,7 +497,7 @@
             ? "Giữ format position/normal/uv0 · < 65536 đỉnh"
             : "Luna/Unity: tự đổi hệ trục tay trái, giữ đủ stream của mesh cũ (normal, tangent, skin, màu)";
         state.analysis = analysis; state.fileName = name || ""; state.selected = -1;
-        state.newModel = null; state.selectedTexKey = null; state.newTexDataUri = null;
+        state.newModel = null; state.selectedTexKey = null; state.newTexDataUri = null; state.newTex = null;
         el["mesh-empty"].hidden = true;
         el["mesh-body"].hidden = false;
         renderMeshGrid();

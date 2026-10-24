@@ -298,6 +298,13 @@ h1, h2, h3, p { margin: 0; }
 .newtex-preview { margin-top: 10px; padding: 10px; display: grid; place-items: center; border: 1px solid var(--line-soft); border-radius: 10px; background: #0a0d10; }
 .newtex-preview img { max-width: 100%; max-height: 160px; object-fit: contain; border-radius: 6px; }
 .save-note.error { color: var(--danger); background: rgba(255, 123, 123, .08); }
+.tex-link { display: flex; align-items: center; justify-content: center; gap: 12px; }
+.tex-slot { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.tex-thumb { width: 96px; height: 96px; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 8px; background: repeating-conic-gradient(#171b20 0 25%, #111419 0 50%) 50% / 12px 12px; color: var(--muted); font-size: 10px; text-align: center; overflow: hidden; }
+.tex-thumb img { width: 100%; height: 100%; object-fit: contain; }
+#tex-info { white-space: pre-line; }
+.tex-drop { min-height: 64px; margin-top: 10px; margin-bottom: 10px; }
+#tex-controls .text-button { margin-top: 8px; }
 
 /* ── Redesign layout: file bar + step tabs + full-width panels ── */
 .shell > * + * { margin-top: 18px; }

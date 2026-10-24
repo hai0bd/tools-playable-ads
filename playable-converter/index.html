@@ -167,6 +167,23 @@
                             <div class="fit-info" id="fit-info"></div>
                         </div>
 
+                        <div class="fit-controls" id="tex-controls" hidden>
+                            <div class="tex-link">
+                                <div class="tex-slot"><span class="viewer-label">Texture đang dùng</span><div class="tex-thumb" id="tex-old"></div></div>
+                                <div class="viewer-arrow">→</div>
+                                <div class="tex-slot"><span class="viewer-label">Texture mới</span><div class="tex-thumb" id="tex-new"></div></div>
+                            </div>
+                            <div class="fit-info" id="tex-info"></div>
+                            <label class="mesh-drop tex-drop" id="tex-drop" for="tex-input">
+                                <input id="tex-input" type="file" accept="image/png,image/jpeg,image/webp" hidden>
+                                <strong>Thả texture cho mesh này (.png / .jpg)</strong>
+                                <small>Model .glb có ảnh nhúng sẽ tự lấy · ảnh không phải 2ⁿ sẽ đưa về 2ⁿ</small>
+                            </label>
+                            <label class="fit-option"><input type="radio" name="tex-mode" value="own" checked> <span>Texture riêng cho mesh này (sao chép material — mesh khác giữ nguyên)</span></label>
+                            <label class="fit-option"><input type="radio" name="tex-mode" value="overwrite"> <span>Ghi đè ảnh của texture cũ (mọi mesh dùng chung texture đổi theo)</span></label>
+                            <button class="text-button" id="tex-clear" type="button" hidden>Bỏ texture mới</button>
+                        </div>
+
                         <button class="primary-button" id="apply-button" disabled>
                             <span>Áp dụng vào playable</span><span class="arrow">→</span>
                         </button>

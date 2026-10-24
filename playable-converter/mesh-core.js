@@ -452,7 +452,12 @@
         } else {
             for (var mi = 0; mi < json.meshes.length; mi++) addObject(mi, IDENT);
         }
-        return { pos: pos, nrm: nrm, uv: uv, uv1: uv1, idx: idx, parts: parts, objects: objects };
+        // Ảnh nhúng trong .glb (texture baseColor xuất kèm) → panel tự gắn làm texture của mesh.
+        var images = (json.images || []).filter(function (im) { return im.bufferView != null && bin; }).map(function (im) {
+            var bv = json.bufferViews[im.bufferView], at = bv.byteOffset || 0;
+            return { name: im.name || "", mime: im.mimeType || "image/png", bytes: bin.slice(at, at + bv.byteLength) };
+        });
+        return { pos: pos, nrm: nrm, uv: uv, uv1: uv1, idx: idx, parts: parts, objects: objects, images: images };
     }
     function loadOBJ(text) {
         var vs = [], vns = [], vts = [], map = {}, pos = [], nrm = [], uv = [], idx = [];

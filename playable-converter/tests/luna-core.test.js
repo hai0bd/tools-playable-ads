@@ -74,7 +74,16 @@ function buildFixture(opts) {
             { id: 101, path: "Assets/Models/Char.fbx", assetBundleId: -1, data: meshData("Body", false, 3, [1, 1, 0, 1, 1, 0], [1, 1, 1, 1, 1, 0, 1, 0, 0, 0], [oB, bV.length], [[[oBI, 6]]], new Array(48).fill(0)) }
         ],
         textures: [{ id: 42, type: 0, path: "Assets/UI/Hand_icon.png", assetBundleId: -1, data: ["Hand_icon", 2, 2] }, { id: 43, type: 0, assetBundleId: -1, data: [null, 4, 4] }],
-        sounds: [{ id: 7, path: "Assets/SFX/Dig_01.mp3", assetBundleId: -1, data: ["Dig_01"] }]
+        sounds: [{ id: 7, path: "Assets/SFX/Dig_01.mp3", assetBundleId: -1, data: ["Dig_01"] }],
+        // Quad (MeshFilter + MeshRenderer) và Body (SkinnedMeshRenderer) dùng CHUNG material 200 → ảnh 42.
+        materials: [
+            { id: 200, path: "Assets/Mat/Shared.mat", assetBundleId: -1, data: ["Shared", 0, 30, 2000, 0, [], [["_Color", 1, 1, 1, 1]], [["_MainTex_ST", 2, 2, 0.5, 0]], [["_MainTex", 1, 42]], []] },
+            { id: 201, path: "Assets/Mat/Other.mat", assetBundleId: -1, data: ["Other", 0, 30, 2000, 0, [], [], [], [["_MainTex", 1, 43]], []] }
+        ],
+        scenes: [{ id: 0, name: "Main", objects: [
+            { id: 500, components: [{ type: 2, id: 501, data: [0, 0, 0, 1, 1, 1, 0, 0, 0, 1] }, { type: 3, id: 502, data: [4, 100] }, { type: 5, id: 503, data: [null, null, 1, 6, 200, [6, 200], 1, 1, 0, 0, -1, 0] }],
+              children: [{ id: 510, components: [{ type: 7, id: 511, data: [4, 101, [], 0, [0, 0, 0, 1, 1, 1], null, null, [], 1, 6, 200, [6, 200]] }], children: [] }] }
+        ] }]
     };
     var sound = new Uint8Array(4000).map(function (_, i) { return (i * 37) & 255; });
     var png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3, 60, 47, 62, 38, 34]);
@@ -232,6 +241,53 @@ ok("thay mesh có skin: mỗi đỉnh mới lấy trọng số xương của đ�
     // tangent được tính (có w = ±1)
     var w = raw.floats[0 * st + raw.layout.offsets.TANGENT + 3];
     assert.ok(w === 1 || w === -1);
+});
+
+ok("texture của mesh: lần ra material + ảnh qua renderer, biết material dùng chung", function () {
+    var a = L.analyzeMeshes(fx.html);
+    var quad = a.meshes.filter(function (m) { return m.id === 100; })[0];
+    var info = L.meshTextureInfo(a, quad.index);
+    assert.strictEqual(info.renderers, 1);
+    assert.strictEqual(info.materials.length, 1);
+    assert.strictEqual(info.materials[0].id, 200);
+    assert.strictEqual(info.materials[0].otherRenderers, 1);
+    assert.strictEqual(info.materials[0].texture.key, "assets/bundles/-1/42.png");
+    assert.ok(/^data:image\/png;base64,/.test(L.meshBackend.textureDataUri(a, "assets/bundles/-1/42.png")));
+    assert.ok(/^data:image\/jpeg;base64,/.test(L.meshBackend.textureDataUri(a, "assets/bundles/-1/43.jpeg")));
+});
+
+ok("gắn texture riêng: sao chép material, chỉ renderer của mesh này đổi, ảnh cũ giữ nguyên", function () {
+    var a = L.analyzeMeshes(fx.html);
+    var quad = a.meshes.filter(function (m) { return m.id === 100; })[0];
+    var uri = "data:image/png;base64,iVBORw0KGgo=";
+    L.applyMeshTexture(a, quad.index, { dataUri: uri, width: 64, height: 64 }, "own");
+    var b = L.analyzeMeshes(a.html);
+    var json = JSON.parse(text(L.readPayload(a.html, L.scanPayloads(a.html).filter(function (e) { return e.store === "jsons"; })[0])));
+    var mine = L.meshTextureInfo(b, quad.index).materials[0];
+    assert.notStrictEqual(mine.id, 200);
+    assert.strictEqual(mine.otherRenderers, 0);
+    assert.strictEqual(mine.texture.width, 64);
+    var copy = json.materials.filter(function (m) { return m.id === mine.id; })[0];
+    assert.deepStrictEqual(copy.data[7], [["_MainTex_ST", 1, 1, 0, 0]]);
+    assert.deepStrictEqual(copy.data[6], [["_Color", 1, 1, 1, 1]]);
+    // Body (skinned) vẫn trỏ material + ảnh cũ
+    var body = b.meshes.filter(function (m) { return m.id === 101; })[0];
+    assert.strictEqual(L.meshTextureInfo(b, body.index).materials[0].id, 200);
+    assert.ok(a.html.indexOf('id="' + mine.texture.key + '" src="' + uri + '"') > 0);
+    assert.ok(a.html.indexOf('id="assets/bundles/-1/42.png" data-src122=') > 0);
+});
+
+ok("ghi đè texture: thay ảnh + kích thước của texture cũ, material giữ nguyên", function () {
+    var a = L.analyzeMeshes(fx.html);
+    var quad = a.meshes.filter(function (m) { return m.id === 100; })[0];
+    var uri = "data:image/png;base64,AAAA";
+    L.applyMeshTexture(a, quad.index, { dataUri: uri, width: 128, height: 32 }, "overwrite");
+    var b = L.analyzeMeshes(a.html), m = L.meshTextureInfo(b, quad.index).materials[0];
+    assert.strictEqual(m.id, 200);
+    assert.strictEqual(m.texture.width, 128);
+    assert.strictEqual(m.texture.height, 32);
+    assert.strictEqual(L.meshBackend.textureDataUri(b, "assets/bundles/-1/42.png"), uri);
+    assert.strictEqual((a.html.match(/id="assets\/bundles\/-1\/42\.png"/g) || []).length, 1);
 });
 
 ok("encodePayload: base122 không để lọt '</' đóng thẻ <script>, đọc lại vẫn đúng byte", function () {
