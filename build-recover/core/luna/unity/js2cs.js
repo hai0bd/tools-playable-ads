@@ -123,6 +123,10 @@ class Printer {
     const bare = last.replace(/\$\d+$/, '');
     // x.$clone() → x
     if (bare === '$clone' && c.type === 'MemberExpression') return this.expr(c.object, 12);
+    // Base.prototype.M.call(this, a) → base.M(a)
+    if (bare === 'call' && c.type === 'MemberExpression' && c.object.type === 'MemberExpression' && !c.object.computed && c.object.object.type === 'MemberExpression' && !c.object.object.computed && c.object.object.property.name === 'prototype' && a[0] && a[0].type === 'ThisExpression') {
+      return 'base.' + c.object.property.name.replace(/\$\d+$/, '') + '(' + this.args(a.slice(1)) + ')';
+    }
     // Vector3.op_Addition(a, b) → a + b
     if (OPS[bare] && a.length === 2) return '(' + this.expr(a[0], 9) + ' ' + OPS[bare] + ' ' + this.expr(a[1], 10) + ')';
     if (bare === 'op_UnaryNegation' && a.length === 1) return '-' + this.expr(a[0], 11);
@@ -197,6 +201,23 @@ class Printer {
   }
 
   // ---------------------------------------------------------------- statements
+  /** if/switch head; a comma test "if (a = 1, f(), x)" runs a = 1; f(); before "if (x)" — C# has no comma operator */
+  testLine(kw, test) {
+    if (test.type === 'SequenceExpression') {
+      test.expressions.slice(0, -1).forEach((x) => this.stmt({ type: 'ExpressionStatement', expression: x }));
+      test = test.expressions[test.expressions.length - 1];
+    }
+    this.line(kw + ' (' + this.expr(test) + ')');
+  }
+
+  /** Body of an if made from an expression: braces when it turns into more than one statement. */
+  branch(s) {
+    const sub = new Printer();
+    sub.depth = this.depth + 1;
+    sub.stmt(s);
+    if (sub.lines.length > 1) { this.line('{'); this.lines.push(...sub.lines); this.line('}'); } else this.lines.push(...sub.lines);
+  }
+
   block(n) {
     const list = n.type === 'BlockStatement' ? n.body : [n];
     this.line('{');
@@ -211,17 +232,17 @@ class Printer {
       case 'ExpressionStatement': {
         const e = n.expression;
         if (e.type === 'SequenceExpression') { e.expressions.forEach((x) => this.stmt({ type: 'ExpressionStatement', expression: x })); return; }
-        // a && b() / a || b() used as statements → if
+        // a && b() / a || b() used as statements → if (a block when b is a comma list: a && (x = 1, f()))
         if (e.type === 'LogicalExpression' && (e.operator === '&&' || e.operator === '||')) {
-          this.line('if (' + (e.operator === '||' ? '!(' + this.expr(e.left) + ')' : this.expr(e.left)) + ')');
-          this.depth++; this.stmt({ type: 'ExpressionStatement', expression: e.right }); this.depth--;
+          this.testLine('if', e.operator === '||' ? { type: 'UnaryExpression', operator: '!', argument: e.left, prefix: true } : e.left);
+          this.branch({ type: 'ExpressionStatement', expression: e.right });
           return;
         }
         if (e.type === 'ConditionalExpression') {
-          this.line('if (' + this.expr(e.test) + ')');
-          this.depth++; this.stmt({ type: 'ExpressionStatement', expression: e.consequent }); this.depth--;
+          this.testLine('if', e.test);
+          this.branch({ type: 'ExpressionStatement', expression: e.consequent });
           this.line('else');
-          this.depth++; this.stmt({ type: 'ExpressionStatement', expression: e.alternate }); this.depth--;
+          this.branch({ type: 'ExpressionStatement', expression: e.alternate });
           return;
         }
         this.line(this.expr(e) + ';');
@@ -240,10 +261,12 @@ class Printer {
         this.line(n.argument ? 'return ' + this.expr(n.argument) + ';' : 'return;');
         return;
       case 'IfStatement':
-        this.line('if (' + this.expr(n.test) + ')');
+        this.testLine('if', n.test);
         this.block(n.consequent);
         if (n.alternate) {
-          if (n.alternate.type === 'IfStatement') { this.line('else'); this.stmt(n.alternate); } else { this.line('else'); this.block(n.alternate); }
+          // else if (a, b): the hoisted a; has to sit inside the else
+          const hoists = n.alternate.type === 'IfStatement' && n.alternate.test.type === 'SequenceExpression';
+          if (n.alternate.type === 'IfStatement' && !hoists) { this.line('else'); this.stmt(n.alternate); } else { this.line('else'); this.block(n.alternate); }
         }
         return;
       case 'BlockStatement': this.block(n); return;
@@ -277,7 +300,7 @@ class Printer {
         if (n.finalizer) { this.line('finally'); this.block(n.finalizer); }
         return;
       case 'SwitchStatement':
-        this.line('switch (' + this.expr(n.discriminant) + ')');
+        this.testLine('switch', n.discriminant);
         this.line('{');
         this.depth++;
         n.cases.forEach((cs) => {

@@ -25,7 +25,9 @@ Tuỳ chọn:
       --force               cho phép ghi vào thư mục đã có assets
       --batch               khôi phục mọi build tìm thấy trong thư mục (mỗi thư mục con lấy 1 bản)
       --no-scripts          bỏ qua bước dịch ngược script
-  -h, --help                hiện hướng dẫn này
+      --dotween <thư mục>   (playable Luna) chép DOTween vào project khôi phục: một project Unity đã có DOTween,
+                            hoặc bản DOTween đã giải nén (mặc định: biến môi trường BUILD_RECOVER_DOTWEEN)
+  -h, --help               hiện hướng dẫn này
 `;
 
 function parseArgs(argv) {
@@ -41,6 +43,7 @@ function parseArgs(argv) {
     else if (a === '--force') o.force = true;
     else if (a === '--batch') o.batch = true;
     else if (a === '--no-scripts') o.noScripts = true;
+    else if (a === '--dotween') o.dotween = val();
     else if (a.startsWith('-')) throw new Error('Tuỳ chọn không hợp lệ: ' + a);
     else o.inputs.push(a);
   }

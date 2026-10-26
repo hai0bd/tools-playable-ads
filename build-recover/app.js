@@ -248,6 +248,8 @@
         if (job.status !== 'reading') return;          // bị huỷ trong lúc đọc
         var refs = [];
         try { refs = await readRefs(); } catch (e) { /* bỏ qua tham chiếu hỏng */ }
+        var dotweenFiles = [];
+        try { dotweenFiles = await readDotween(); } catch (e) { /* bỏ qua DOTween hỏng */ }
         var w;
         try { w = takeWorker(); } catch (e) { return finish(job, 'failed', e.message); }
         w.job = job; job.worker = w;
@@ -283,8 +285,8 @@
             finish(job, 'failed', 'Worker lỗi: ' + (e.message || 'không rõ') + ' (có thể thiếu bộ nhớ với bản build quá lớn)');
             pump();
         };
-        var transfer = payload.inputs.map(function (f) { return f.data; }).concat(refs.map(function (f) { return f.data; }));
-        w.worker.postMessage({ type: 'run', entry: payload.entry, source: job.path || job.label, inputs: payload.inputs, refs: refs, noScripts: settings.noScripts, zip: zipMode }, transfer);
+        var transfer = payload.inputs.map(function (f) { return f.data; }).concat(refs.map(function (f) { return f.data; }), dotweenFiles.map(function (f) { return f.data; }));
+        w.worker.postMessage({ type: 'run', entry: payload.entry, source: job.path || job.label, inputs: payload.inputs, refs: refs, dotween: dotweenFiles, noScripts: settings.noScripts, zip: zipMode }, transfer);
     }
 
     function finish(job, status, error, stack) {
@@ -413,6 +415,43 @@
             }
         }
         return out;
+    }
+
+    // ------------------------------------------------------------------ DOTween cho playable Luna
+    var dotween = null;   // { name, files: [{ rel, file }] } — rel bắt đầu từ Demigiant/ hoặc DOTween/
+    /* Chỉ giữ thư mục Demigiant (hoặc DOTween nếu không nằm trong Demigiant) — khỏi đọc cả project Unity. */
+    function addDotweenFolder(items) {
+        var all = Array.prototype.map.call(items, function (it) { return { rel: it.webkitRelativePath || it.name, file: it }; })
+            .filter(function (f) { return !/(^|\/)(Library|Temp|Logs|obj|node_modules|\.git)\//.test(f.rel); });
+        var dll = all.filter(function (f) { return /(^|\/)DOTween\.dll$/.test(f.rel); })[0];
+        if (!dll) { alert('Không thấy DOTween.dll trong thư mục này.'); return; }
+        var dir = dll.rel.slice(0, dll.rel.lastIndexOf('/'));               // …/Demigiant/DOTween
+        var parent = dir.slice(0, dir.lastIndexOf('/'));
+        var root = /(^|\/)Demigiant$/.test(parent) ? parent : dir;
+        var cut = root.lastIndexOf('/') + 1;
+        var files = all.filter(function (f) { return f.rel === root + '.meta' || f.rel.indexOf(root + '/') === 0; })
+            .map(function (f) { return { rel: f.rel.slice(cut), file: f.file }; });
+        dotween = { name: root, files: files };
+        renderDotween();
+    }
+    async function readDotween() {
+        if (!dotween) return [];
+        var out = [];
+        for (var i = 0; i < dotween.files.length; i++) out.push({ path: dotween.files[i].rel, data: await dotween.files[i].file.arrayBuffer() });
+        return out;
+    }
+    function renderDotween() {
+        var box = $('dotween-info');
+        box.innerHTML = '';
+        if (!dotween) return;
+        var row = el('div', 'ref-item');
+        row.appendChild(el('span', null, dotween.name));
+        row.appendChild(el('small', null, dotween.files.length + ' file'));
+        var b = el('button', 'text-button', 'Bỏ');
+        b.type = 'button';
+        b.addEventListener('click', function () { dotween = null; renderDotween(); });
+        row.appendChild(b);
+        box.appendChild(row);
     }
 
     // ------------------------------------------------------------------ nhận đầu vào
@@ -816,6 +855,8 @@
         ns.addEventListener('change', function () { settings.noScripts = ns.checked; store.set('noScripts', ns.checked); });
         $('pick-ref').addEventListener('click', function () { $('ref-input').click(); });
         $('ref-input').addEventListener('change', function (e) { if (e.target.files.length) addRefFolder(e.target.files); e.target.value = ''; });
+        $('pick-dotween').addEventListener('click', function () { $('dotween-input').click(); });
+        $('dotween-input').addEventListener('change', function (e) { if (e.target.files.length) addDotweenFolder(e.target.files); e.target.value = ''; });
 
         $('clear-done').addEventListener('click', function () {
             jobs.filter(function (j) { return j.status === 'done' || j.status === 'cancelled'; }).forEach(removeJob);

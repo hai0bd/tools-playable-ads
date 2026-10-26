@@ -12,6 +12,7 @@ const anim = require('./unity/anim');
 const scene = require('./unity/scene');
 const settings = require('./unity/settings');
 const cs = require('./unity/csharp');
+const extras = require('./unity/extras');
 const { Report } = require('../report');
 const { sanitizeName } = require('../project/writer');
 const { claimOutDir } = require('../util/outdir');
@@ -20,7 +21,8 @@ const STAT_NAMES = {
   textures: 'Texture', sprites: 'Sprite', spriteSheets: 'Texture nhiều sprite', audio: 'Âm thanh', textAssets: 'Text asset', materials: 'Material',
   standInShaders: 'Shader thay thế', meshes: 'Mesh', animationClips: 'Animation clip', animatorControllers: 'Animator controller',
   scriptableObjects: 'ScriptableObject', physicsMaterials: 'Physics material', prefabs: 'Prefab', scenes: 'Scene', gameObjects: 'GameObject',
-  components: 'Component', monoBehaviours: 'MonoBehaviour', scripts: 'Script C#',
+  components: 'Component', monoBehaviours: 'MonoBehaviour', scripts: 'Script C#', typesFromCode: 'Type chỉ có trong code (lớp cơ sở, enum, Configs…)',
+  dotweenFiles: 'File DOTween đã chép',
 };
 
 function renderReport(r, extra) {
@@ -38,7 +40,7 @@ function renderReport(r, extra) {
   (f.nextSteps || []).forEach((s, i) => L.push(`${i + 1}. ${s}`));
   L.push('');
   L.push('## Giới hạn (không có trong bản build Luna)', '');
-  L.push('- **Script C#**: tên class, field serialize và kiểu dữ liệu là thật (dữ liệu trong scene/prefab gắn đúng). Thân hàm được dịch tự động từ JavaScript Bridge.NET về C# và để **trong comment** (biến cục bộ là `var`, tham số chưa có kiểu, tên biến là tên đã minify) — kiểm tra rồi bỏ comment từng hàm. Nhờ vậy project luôn compile được ngay khi mở.');
+  L.push('- **Script C#**: tên type, lớp cơ sở / interface, field serialize và enum là thật (dữ liệu trong scene/prefab gắn đúng); mọi type trong code đều được dựng, kể cả lớp cơ sở, Configs, enum không gắn vào scene nào. Kiểu tham số, giá trị trả về và field runtime được **suy ra** từ cách code dùng (giá trị truyền vào, so sánh với enum, gán vào field…) — chỗ không đủ dấu hiệu để là `object`. Thân hàm được dịch tự động từ JavaScript Bridge.NET về C# và để **trong comment** (biến cục bộ là `var`, tên biến là tên đã minify) — kiểm tra rồi bỏ comment từng hàm. Nhờ vậy project luôn compile được ngay khi mở.');
   L.push('- **Texture** ở độ phân giải Luna đã nén (thường nhỏ hơn bản gốc); PPU và border của sprite đã tính lại để kích thước trên màn hình giữ nguyên.');
   L.push('- **Shader tuỳ biến** chỉ có GLSL đã biên dịch: tool tạo shader thay thế cùng tên, cùng thuộc tính (unlit) trong `Assets/_Recovered/Shaders`.');
   L.push('- **Font** .ttf/.otf không có trong bản build (Luna chỉ giữ atlas chữ): Text dùng tạm font mặc định của Unity.');
@@ -113,8 +115,16 @@ function recoverLuna(input, opts = {}) {
   onProgress(74, 'Ghi scene và prefab...');
   scene.writeScenesAndPrefabs(p, ctx);
   onProgress(88, 'Dựng script C#...');
+  // DOTween first: field types from DG.Tweening stay typed only when the project will have it
+  const usesDOTween = p.usesDOTween || p.packagesUsed.has('DOTween') || p.packagesUsed.has('DOTween Pro') || /\bDG\.Tweening\./.test(x.code);
+  const dotweenRoot = opts.dotween || (typeof process !== 'undefined' && process.env && process.env.BUILD_RECOVER_DOTWEEN) || null;
+  if (usesDOTween && dotweenRoot) {
+    try { p.dotween = extras.copyDOTween(p, dotweenRoot); } catch (e) { report.warn(`Không chép được DOTween từ ${dotweenRoot}: ${e.message}`); }
+    if (!p.dotween) report.warn(`Không tìm thấy DOTween.dll trong ${dotweenRoot} — import DOTween bằng tay.`);
+  }
   p.collectEventMethods();
   cs.writeScripts(p);
+  const lunaStub = extras.writeLunaStub(p);
 
   // report
   const pkgs = String(info.packagesInfo || '').split(/\r?\n/).filter(Boolean);
@@ -140,11 +150,13 @@ function recoverLuna(input, opts = {}) {
   }
   if (p.needSpine && /^[4-9]\./.test(p.spineBranch || '4.1')) next.push(`Spine: Packages/manifest.json đã trỏ tới spine-unity ${p.spineBranch || ''} trên GitHub (cần mạng khi mở lần đầu); hoặc xoá dòng đó và import file .unitypackage spine-unity đúng phiên bản.`);
   const dotweenPro = p.packagesUsed.has('DOTween Pro');
-  if (dotweenPro) {
+  if (p.dotween && (p.dotween.pro || !dotweenPro)) {
+    next.push(`DOTween${p.dotween.pro ? ' Pro' : ''}: đã chép từ ${p.dotween.from} vào Assets/Plugins/Demigiant (giữ GUID gốc). Nếu Unity báo lỗi module, chạy Tools → Demigiant → DOTween Utility Panel → Setup.`);
+  } else if (dotweenPro) {
     next.push('DOTween Pro (Asset Store, trả phí): import rồi chạy Tools → Demigiant → DOTween Utility Panel → Setup. Trước khi import, các component DOTween Pro (DOTweenAnimation, DOTweenPath, DOTweenVisualManager…) báo "Missing Script"; GUID đã khớp bản chính thức nên import xong tự nối lại.');
     requires.push('DOTween Pro');
-  } else if (p.usesDOTween || p.packagesUsed.has('DOTween') || /\bDG\.Tweening\.DOTween\b/.test(x.code)) {
-    next.push('DOTween: import DOTween (Asset Store, miễn phí) rồi chạy Tools → Demigiant → DOTween Utility Panel → Setup.');
+  } else if (usesDOTween) {
+    next.push('DOTween: import DOTween (Asset Store, miễn phí) rồi chạy Tools → Demigiant → DOTween Utility Panel → Setup. Lần sau có thể để tool tự chép: --dotween <thư mục chứa DOTween> (một project Unity đã có DOTween, hoặc bản DOTween đã giải nén).');
     requires.push('DOTween');
   }
   if (p.needSpine && !/^[4-9]\./.test(p.spineBranch || '')) {
@@ -154,7 +166,8 @@ function recoverLuna(input, opts = {}) {
   report.set('requires', requires);
   const missing = [...p.scripts].filter(([, s]) => s.missing).map(([c]) => c);
   if (missing.length) report.warn(`Component thuộc package chưa có GUID (để "Missing Script" cho tới khi import package gốc): ${missing.join(', ')}.`);
-  next.push(`Mở scene ${sceneFiles[0] ? sceneFiles[0].rel : ''}. Script trong Assets/Scripts: bỏ comment phần C# đã dịch của từng hàm, sửa kiểu tham số/biến cho khớp rồi chạy thử.`);
+  if (lunaStub) report.note(`${lunaStub}: stub các API Luna SDK mà code game gọi (chỉ ghi log) — xoá khi import plugin Luna thật.`);
+  next.push(`Mở scene ${sceneFiles[0] ? sceneFiles[0].rel : ''}. Script trong Assets/Scripts đã có đúng lớp cơ sở, enum, kiểu tham số và giá trị trả về; thân hàm vẫn để trong comment — bỏ comment từng hàm, sửa chỗ còn sai kiểu rồi chạy thử.`);
   report.set('nextSteps', next);
   const reportText = renderReport(report);
   p.out.write('RECOVERY_REPORT.md', reportText);

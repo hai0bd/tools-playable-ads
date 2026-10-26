@@ -9,6 +9,7 @@ const S = require('../schema');
 
 const BAD_CHARS = /[<>:"|?*\u0000-\u001f]/g;
 const THIRD_PARTY = /^(UnityEngine|UnityEditor|Unity|TMPro|Spine|DG\.Tweening|Cinemachine|System)\./;
+const DOTWEEN_PRO = /^DG\.Tweening\.(DOTweenAnimation|DOTweenPath|DOTweenVisualManager|DOTweenTMPAnimator|DOTweenProShortcuts|DOTweenModuleUtils\.Physics|Core\.ABSAnimationComponent|DOTweenInspectorMode|HandlesDrawMode|HandlesType|VisualManagerPreset|OnDisableBehaviour|OnEnableBehaviour|TargetType|DOTweenAnimationType)\b/;
 
 class Out {
   constructor(root) { this.root = root; this.claimed = new Set(); this.count = 0; this.bytes = 0; }
@@ -80,6 +81,8 @@ class UnityProject {
     if (/^UnityEngine\./.test(t) && !/^UnityEngine\.(Rendering\.Universal|InputSystem|Timeline|Playables\.)/.test(t)) return true;
     if (/^TMPro\./.test(t)) return true;
     if (/^Spine\./.test(t)) return !!(this.needSpine && /^[4-9]\./.test(this.spineBranch || '4.1'));
+    // DOTween types compile once a DOTween copy was put into the project (Pro components only with DOTween Pro)
+    if (/^DG\.Tweening\./.test(t)) return !!this.dotween && (this.dotween.pro || !DOTWEEN_PRO.test(t));
     const s = this.scripts.get(t);
     if (s) return !!s.user || (!!s.guid && !THIRD_PARTY.test(t));
     return !THIRD_PARTY.test(t) && !/^(DG|RootMotion|Luna|Sirenix|Cinemachine)\./.test(t) && this.m.schema.types.includes(t);

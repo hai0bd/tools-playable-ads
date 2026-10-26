@@ -5,7 +5,7 @@
  * Blob đó — cách duy nhất chạy được cả khi mở index.html bằng file://.
  *
  * Giao thức:
- *   vào  { type: 'run', entry, inputs: [{ path, data }], refs: [{ path, data }], noScripts, zip }
+ *   vào  { type: 'run', entry, inputs: [{ path, data }], refs: [{ path, data }], dotween: [{ path, data }], noScripts, zip }
  *   ra   { type: 'progress', pct, msg }
  *        { type: 'done', summary, report, files: [[đường dẫn, ArrayBuffer]] | zip: ArrayBuffer }
  *        { type: 'error', message, unsupported }
@@ -26,11 +26,13 @@ function BuildRecoverWorker(core) {
             core.vfs.reset();
             job.inputs.forEach(function (f) { core.vfs.put('/in/' + f.path, new Uint8Array(f.data)); });
             (job.refs || []).forEach(function (f) { core.vfs.put('/ref/' + f.path, new Uint8Array(f.data)); });
+            (job.dotween || []).forEach(function (f) { core.vfs.put('/dotween/' + f.path, new Uint8Array(f.data)); });
             var res = core.recover('/in/' + job.entry, {
                 outRoot: '/out',
                 noScripts: !!job.noScripts,
                 sourceLabel: job.source || job.entry,
                 reference: job.refs && job.refs.length ? ['/ref'] : [],
+                dotween: job.dotween && job.dotween.length ? '/dotween' : null,
                 onProgress: function (pct, msg) { self.postMessage({ type: 'progress', pct: pct, msg: msg }); }
             });
             var files = core.vfs.list(res.outDir);

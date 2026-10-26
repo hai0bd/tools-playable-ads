@@ -1,15 +1,18 @@
 'use strict';
-// C# for the game's own MonoBehaviours / ScriptableObjects / [Serializable] classes.
-// Luna compiled them with Bridge.NET; the build keeps, per class:
+// C# for the game's own types. Luna compiled them with Bridge.NET; the build keeps, per class:
 //   - the Deserializer (exact serialized field names, reference vs value, Vector3/Color/List<T>…)
-//   - Bridge.define("Name", { inherits, fields, ctors: { init }, methods, statics })
-// This first pass writes classes that compile and carry every serialized field with the right type, so the
-// recovered scenes/prefabs keep their data; method bodies are attached as the compiled JavaScript for reference.
+//   - Bridge.define("Name", { $kind, inherits, fields, props, ctors: { init }, methods, statics })
+// From these the writer emits the real type hierarchy (base classes and interfaces, so a subclass never repeats a
+// field its base declares), every type the code defines — also those no scene uses (base classes, Configs, enums,
+// interfaces, structs) — and typed signatures inferred from how the code uses each value (./types). Method bodies
+// stay the translated JavaScript inside comments, so the project still compiles as soon as it opens.
 const { closingIndex } = require('../schema');
 const { importers } = require('./project');
 const { translateFunction } = require('./js2cs');
+const types = require('./types');
 const ids = require('./ids');
 
+const { objectEntries } = types;
 const VALUE_TYPES = { Vec2: 'Vector2', Vec3: 'Vector3', Vec4: 'Vector4', Quat: 'Quaternion', Color: 'Color', Color32: 'Color32', Rect: 'Rect', LayerMask: 'LayerMask', Mat4: 'Matrix4x4' };
 const UNITY_MSG = {
   Awake: '', Start: '', Update: '', LateUpdate: '', FixedUpdate: '', OnEnable: '', OnDisable: '', OnDestroy: '', OnValidate: '', Reset: '',
@@ -22,6 +25,9 @@ const UNITY_MSG = {
 };
 const CS_KEYWORDS = new Set('abstract as base bool break byte case catch char checked class const continue decimal default delegate do double else enum event explicit extern false finally fixed float for foreach goto if implicit in int interface internal is lock long namespace new null object operator out override params private protected public readonly ref return sbyte sealed short sizeof stackalloc static string struct switch this throw true try typeof uint ulong unchecked unsafe ushort using virtual void volatile while'.split(' '));
 const ident = (s) => (CS_KEYWORDS.has(s) ? '@' + s : s);
+// names that are ids, counters and indices: integral data in such a field is an int, not a float
+const INT_NAME = /(^|_)(id|index|count|level|layer|step|num|amount|total|max|min)|(Id|ID|Index|Count|Level|Layer|Step|Num|Amount|Total)([A-Z_]|$)|^(id|Id|ID)[A-Z_]/;
+const VALUE_TYPE = /^(int|float|double|bool|long|short|byte|char|uint|UnityEngine\.(Vector[234]|Vector[23]Int|Quaternion|Color|Color32|Rect|Bounds|LayerMask|Matrix4x4))$/;
 
 /** Type name as C# source: "UnityEngine.UI.Image" → "UnityEngine.UI.Image" (fully qualified keeps usings trivial). */
 function csTypeName(t) {
@@ -29,7 +35,7 @@ function csTypeName(t) {
   return String(t).replace(/\+/g, '.').replace(/\$\d+$/, '');
 }
 
-/** Bridge.define source of a class, or null. */
+/** Bridge.define source of a (non-generic) class, or null. */
 function bridgeDefine(code, name) {
   const key = `Bridge.define("${name}",`;
   const at = code.indexOf(key);
@@ -37,24 +43,6 @@ function bridgeDefine(code, name) {
   const open = code.indexOf('{', at + key.length);
   const close = closingIndex(code, open);
   return close < 0 ? null : code.slice(open, close + 1);
-}
-
-/** Top-level keys of an object literal source → { key: source text }. */
-function objectEntries(src) {
-  const out = {};
-  if (!src || src[0] !== '{') return out;
-  let depth = 0, str = null, keyStart = 1, key = null, valStart = -1;
-  for (let i = 1; i < src.length - 1; i++) {
-    const c = src[i];
-    if (str) { if (c === '\\') i++; else if (c === str) str = null; continue; }
-    if (c === '"' || c === "'" || c === '`') { str = c; continue; }
-    if ('{[('.includes(c)) depth++;
-    else if ('}])'.includes(c)) depth--;
-    else if (depth === 0 && c === ':' && key === null) { key = src.slice(keyStart, i).trim().replace(/^["']|["']$/g, ''); valStart = i + 1; }
-    else if (depth === 0 && c === ',') { if (key !== null) out[key] = src.slice(valStart, i).trim(); key = null; keyStart = i + 1; }
-  }
-  if (key !== null) out[key] = src.slice(valStart, src.length - 1).trim();
-  return out;
 }
 
 /** Serialized fields of a class from its deserializer + values seen in scenes/prefabs. */
@@ -100,25 +88,26 @@ function serializedFields(p, className) {
     const vals = samples.map((s) => s && s[f.name]).filter((v) => v != null);
     if (f.kind === 'ref' || f.kind === 'refArray' || (f.kind === 'list' && !f.element)) {
       const flat = vals.flatMap((v) => (Array.isArray(v) ? v : v && v.items ? v.items : [v])).filter((v) => v && v.type);
-      const types = [...new Set(flat.map((v) => v.type))];
-      f.refType = types.length === 1 ? types[0] : types.length ? commonBase(types) : null;
+      const types2 = [...new Set(flat.map((v) => v.type))];
+      f.refType = types2.length === 1 ? types2[0] : types2.length ? commonBase(types2) : null;
     }
     if (f.kind === 'plain' || f.kind === 'plainArray') {
       const flat = vals.flatMap((v) => (Array.isArray(v) ? v : [v]));
+      f.samples = flat.length;
       if (flat.some((v) => typeof v === 'string')) f.plainType = 'string';
-      else if (flat.length && flat.every((v) => typeof v === 'number' && Number.isInteger(v)) && p.intHint(className, f.name)) f.plainType = 'int';
+      else if (flat.every((v) => typeof v === 'number' && Number.isInteger(v)) && (p.intHint(className, f.name) || INT_NAME.test(f.name))) f.plainType = 'int';
       else f.plainType = flat.length && flat.every((v) => typeof v === 'boolean') ? 'bool' : 'float';
     }
   }
   return fields;
 }
 
-function commonBase(types) {
-  if (types.every((t) => /Transform$/.test(t))) return 'UnityEngine.Transform';
-  if (types.every((t) => /^UnityEngine\.UI\./.test(t) || /TextMeshProUGUI/.test(t))) return 'UnityEngine.UI.Graphic';
-  if (types.every((t) => /Collider2D$/.test(t))) return 'UnityEngine.Collider2D';
-  if (types.every((t) => /Collider$/.test(t))) return 'UnityEngine.Collider';
-  if (types.every((t) => /Renderer$/.test(t))) return 'UnityEngine.Renderer';
+function commonBase(list) {
+  if (list.every((t) => /Transform$/.test(t))) return 'UnityEngine.Transform';
+  if (list.every((t) => /^UnityEngine\.UI\./.test(t) || /TextMeshProUGUI/.test(t))) return 'UnityEngine.UI.Graphic';
+  if (list.every((t) => /Collider2D$/.test(t))) return 'UnityEngine.Collider2D';
+  if (list.every((t) => /Collider$/.test(t))) return 'UnityEngine.Collider';
+  if (list.every((t) => /Renderer$/.test(t))) return 'UnityEngine.Renderer';
   return 'UnityEngine.Object';
 }
 
@@ -155,50 +144,435 @@ function typeNote(f, avail) {
   return avail(t) ? '' : `   // kiểu gốc: ${csTypeName(t)} — package chưa có trong project; import package rồi đổi lại kiểu này`;
 }
 
-function methodComments(defSrc) {
-  const parts = objectEntries(defSrc);
-  const methods = objectEntries(parts.methods || '{}');
-  const statics = objectEntries(parts.statics || '{}');
-  return {
-    methods, staticMethods: objectEntries(statics.methods || '{}'), init: objectEntries(parts.ctors || '{}').init || '', inherits: parts.inherits || '',
-    fields: objectEntries(parts.fields || '{}'), staticFields: objectEntries(statics.fields || '{}'),
+// ---------------------------------------------------------------- planning (once per project)
+/** this.X = <node> assignments of a ctor init function → Map name → babel node */
+function initAssignments(src) {
+  const out = new Map();
+  const fn = src && types.parseFn(src);
+  if (!fn || !fn.body || !fn.body.body) return out;
+  const visit = (e) => {
+    if (!e) return;
+    if (e.type === 'SequenceExpression') return e.expressions.forEach(visit);
+    if (e.type === 'AssignmentExpression' && e.operator === '=' && e.left.type === 'MemberExpression' && !e.left.computed && e.left.object.type === 'ThisExpression') out.set(e.left.property.name, e.right);
   };
-}
-
-/** Type of a runtime-only field from its Bridge default and the ctor init assignment. */
-function runtimeFields(p, className, info, serialized) {
-  const out = [];
-  const initSrc = info.init || '';
-  const typeFrom = (name, def, isStatic) => {
-    const init = (initSrc.match(new RegExp(`this\\.${name}\\s*=\\s*([^,}]+(?:\\([^)]*\\)[^,}]*)?)`)) || [])[1] || '';
-    const list = init.match(/List\$1\(([\w.]+)\)/);
-    if (list) return `System.Collections.Generic.List<${p.typeAvailable(list[1]) || /^System\./.test(list[1]) ? csTypeName(list[1]).replace(/^System\.(Int32|Single|String|Boolean)$/, (x, t) => ({ Int32: 'int', Single: 'float', String: 'string', Boolean: 'bool' })[t]) : 'UnityEngine.Object'}>`;
-    const nw = init.match(/^new\s+(UnityEngine\.\w+)/);
-    if (nw) return nw[1];
-    const v = (def || '').trim();
-    if (v === '!1' || v === '!0' || /^(true|false)$/.test(v)) return 'bool';
-    if (/^-?[\d.]+(e[-+]?\d+)?$/i.test(v)) return p.intHint(className, name) ? 'int' : 'float';
-    if (/^["']/.test(v)) return 'string';
-    if (isStatic && /^[Ii]nstance$/.test(name)) return csTypeName(className);
-    return 'object';
-  };
-  for (const [name, def] of Object.entries(info.fields || {})) if (!serialized.has(name) && /^[A-Za-z_]\w*$/.test(name)) out.push({ name, type: typeFrom(name, def, false) });
-  for (const [name, def] of Object.entries(info.staticFields || {})) if (/^[A-Za-z_]\w*$/.test(name)) out.push({ name, type: typeFrom(name, def, true), isStatic: true });
+  for (const s of fn.body.body) if (s.type === 'ExpressionStatement') visit(s.expression);
   return out;
 }
 
-/** Lines of one class (no namespace/usings). Nested [Serializable] field types are collected into `nested`. */
-function classLines(p, className, kind, nested, pad) {
-  const code = p.m.x.code;
-  const def = bridgeDefine(code, className);
-  const info = def ? methodComments(def) : { methods: {}, staticMethods: {}, init: '', inherits: '' };
+/** Enum (and other) types fields are assigned / compared with, from every method of the hierarchy. */
+function fieldEvidence(model) {
+  const enums = model.enumNames();
+  const out = new Map();   // "Cls.field" → Votes-like counts
+  const vote = (cls, f, t, w) => {
+    if (!t) return;
+    // the class that declares the field (it may be an ancestor)
+    let owner = cls;
+    for (const c of [cls, ...model.ancestors(cls)]) if (Object.prototype.hasOwnProperty.call(model.get(c).fields, f)) { owner = c; break; }
+    const k = owner + '.' + f;
+    if (!out.has(k)) out.set(k, new Map());
+    out.get(k).set(t, (out.get(k).get(t) || 0) + w);
+  };
+  const enumOf = (n) => {
+    const p = types.memberPath(n);
+    if (!p) return null;
+    const prefix = p.slice(0, p.lastIndexOf('.'));
+    return enums.has(prefix) ? types.cleanName(prefix) : null;
+  };
+  const thisField = (n) => (n && n.type === 'MemberExpression' && !n.computed && n.object.type === 'ThisExpression' ? n.property.name : null);
+  for (const t of model.types.values()) {
+    const srcs = [...Object.values(t.methods), t.init, ...Object.values(t.props)].filter(Boolean);
+    for (const src0 of srcs) {
+      const srcList = src0.trim()[0] === '{' ? Object.values(objectEntries(src0)) : [src0];
+      for (const src of srcList) {
+        const fn = types.parseFn(src);
+        if (!fn) continue;
+        types.walk(fn.body, (n) => {
+          if (n.type === 'AssignmentExpression' && n.operator === '=') { const f = thisField(n.left); if (f) vote(t.name, f, enumOf(n.right), 3); }
+          if (n.type === 'BinaryExpression' && /^(===|!==|==|!=)$/.test(n.operator)) {
+            const f = thisField(n.left) || thisField(n.right);
+            if (f) vote(t.name, f, enumOf(thisField(n.left) ? n.right : n.left), 3);
+          }
+          if (n.type === 'SwitchStatement') { const f = thisField(n.discriminant); if (f) for (const cs of n.cases) vote(t.name, f, cs.test && enumOf(cs.test), 3); }
+        });
+      }
+    }
+  }
+  const best = new Map();
+  for (const [k, m] of out) best.set(k, [...m].sort((a, b) => b[1] - a[1])[0][0]);
+  return best;
+}
+
+/** Type of a runtime-only field from its Bridge default and the ctor init assignment. */
+function runtimeType(p, className, name, def, initNode, initSrc, isStatic, generic) {
+  const model = p.typeModel;
+  const init = (initSrc.match(new RegExp(`this\\.${name}\\s*=\\s*([^,}]+(?:\\([^)]*\\)[^,}]*)?)`)) || [])[1] || '';
+  const list = init.match(/List\$1\(([\w.]+)\)/);
+  if (list) {
+    const el = list[1];
+    const prim = { 'System.Int32': 'int', 'System.Single': 'float', 'System.String': 'string', 'System.Boolean': 'bool' }[el];
+    return `System.Collections.Generic.List<${prim || (p.typeAvailable(el) || model.has(el) ? model.csType(el, generic) : /^System\./.test(el) ? csTypeName(el) : 'UnityEngine.Object')}>`;
+  }
+  const nw = init.match(/^new\s+(UnityEngine\.\w+)/);
+  if (nw) return nw[1];
+  const pc = init.match(/^new\s+pc\.(\w+)/);
+  if (pc && VALUE_TYPES[pc[1]]) return 'UnityEngine.' + VALUE_TYPES[pc[1]];
+  const gd = (def || '').match(/^Bridge\.getDefaultValue\(([^)]+)\)$/);
+  if (gd) return model.csType(gd[1], generic);
+  const lt = initNode && types.litType(initNode);
+  if (lt === 'string' || lt === 'bool') return lt;
+  const v = (def || '').trim();
+  if (v === '!1' || v === '!0' || /^(true|false)$/.test(v)) return 'bool';
+  if (/^-?[\d.]+(e[-+]?\d+)?$/i.test(v)) return p.intHint(className, name) || (lt === 'int' && INT_NAME.test(name)) ? 'int' : 'float';
+  if (/^["']/.test(v)) return 'string';
+  if (isStatic && /^[Ii]nstance$/.test(name)) return model.csType(className, generic);
+  return 'object';
+}
+
+/** Every user type's fields, typed; then every method's signature. Stored on p for the writers. */
+function plan(p) {
+  if (p.typeModel) return;
+  const model = new types.TypeModel(p.m.x.code);
+  p.typeModel = model;
+  const evidence = fieldEvidence(model);
+  const enums = model.enumNames();
+  const avail = (t) => p.typeAvailable(t) || model.has(t);
   const nestedName = (dto) => {
+    if (model.has(dto)) return csTypeName(dto);
     const clean = csTypeName(dto);
     if (/^(UnityEngine|TMPro|Spine|DG|Cinemachine|System)\./.test(clean)) return clean;
     const local = clean.split('.').pop();
-    if (!nested.has(dto)) nested.set(dto, local);
+    if (!p.nestedTypes) p.nestedTypes = new Map();
+    if (!p.nestedTypes.has(local)) p.nestedTypes.set(local, dto);
     return local;
   };
+  p.csNestedName = nestedName;
+  p.classFields = new Map();
+  for (const t of model.types.values()) {
+    if (t.kind === 'enum' || t.kind === 'interface') continue;
+    const inherited = model.inheritedFieldNames(t.name);
+    const own = new Set(Object.keys(t.fields));
+    let ser;
+    if (typeof p.m.schema.D[t.name] === 'function') ser = serializedFields(p, t.name).filter((f) => !inherited.has(f.name));
+    else {
+      // a base class no scene instantiates: its serialized fields are the ones its subclasses' data carry
+      ser = [];
+      for (const d of model.descendants(t.name)) {
+        if (typeof p.m.schema.D[d] !== 'function') continue;
+        for (const f of serializedFields(p, d)) if (own.has(f.name) && !ser.some((x) => x.name === f.name)) ser.push(f);
+      }
+    }
+    const inits = initAssignments(t.init);
+    const serialized = ser.map((f) => {
+      let cs = fieldType(f, nestedName, avail);
+      const ev = evidence.get(t.name + '.' + f.name);
+      if ((f.kind === 'plain') && ev && enums.has(ev)) cs = csTypeName(ev);
+      else if (f.kind === 'plain' && !f.samples && inits.has(f.name)) { const lt = types.litType(inits.get(f.name)); if (lt === 'string' || lt === 'bool') cs = lt; }
+      return { name: f.name, type: cs, note: typeNote(f, avail), init: inits.get(f.name) };
+    });
+    const serNames = new Set([...ser.map((f) => f.name), ...inherited]);
+    const runtime = [];
+    for (const [name, def] of Object.entries(t.fields)) {
+      if (serNames.has(name) || !/^[A-Za-z_]\w*$/.test(name)) continue;
+      let ty = runtimeType(p, t.name, name, def, inits.get(name), t.init || '', false, t.generic);
+      const ev = evidence.get(t.name + '.' + name);
+      if (ev && (ty === 'object' || ty === 'float' || ty === 'int')) ty = csTypeName(ev);
+      runtime.push({ name, type: ty, init: inits.get(name) });
+    }
+    const sInits = initAssignments(t.statics.init);
+    const statics = [];
+    for (const [name, def] of Object.entries(t.statics.fields)) {
+      if (!/^[A-Za-z_]\w*$/.test(name)) continue;
+      statics.push({ name, type: runtimeType(p, t.name, name, def, sInits.get(name), t.statics.init || '', true, t.generic), init: sInits.get(name) });
+    }
+    p.classFields.set(t.name, { serialized, runtime, statics });
+  }
+  const fieldTypeOf = (cls, f, isStatic) => {
+    const cf = p.classFields.get(cls);
+    if (!cf) return null;
+    const list = isStatic ? cf.statics : [...cf.serialized, ...cf.runtime];
+    const x = list.find((y) => y.name === f);
+    return x && x.type !== 'object' ? x.type.replace(/^UnityEngine\.Object$/, '') || null : null;
+  };
+  p.signatures = types.inferSignatures(model, fieldTypeOf);
+  planMethods(p);
+}
+
+/** C# name, parameters, return type and modifiers of every method — overloads restored, overrides matched. */
+function planMethods(p) {
+  const model = p.typeModel;
+  p.methodPlans = new Map();
+  for (const t of model.types.values()) {
+    const sigs = p.signatures.get(t.name) || new Map();
+    const events = (p.eventMethods && p.eventMethods.get(t.name)) || new Map();
+    const iface = new Map();
+    for (const i of t.interfaces) {
+      const e = types.EVENT_INTERFACES[i.split('.').pop()];
+      if (e) iface.set(e[0], 'UnityEngine.EventSystems.' + e[1] + ' eventData');
+    }
+    const list = [];
+    for (const [isStatic, methods] of [[false, t.methods], [true, t.statics.methods]]) {
+      for (const raw of Object.keys(methods)) {
+        if (t.kind === 'struct' && types.BRIDGE_PLUMBING.test(raw)) continue;
+        if (isStatic && /^getDefaultValue$/.test(raw)) continue;
+        // explicit implementations of System interfaces (System$Collections$IEnumerable$GetEnumerator): those
+        // interfaces are not declared on the C# class, so neither are their members
+        if (/\$/.test(raw.replace(/\$\d+$/, ''))) continue;
+        const s = sigs.get(raw) || { params: [], ret: 'void', coroutine: false };
+        const base = raw.replace(/\$\d+$/, '');
+        // a subclass's Awake comes out as Awake$1 (Bridge numbers it after the base's Awake)
+        const unity = !isStatic && Object.prototype.hasOwnProperty.call(UNITY_MSG, base) && (raw === base || !Object.prototype.hasOwnProperty.call(methods, base));
+        const ev = events.get(base);
+        let params, ret, fixed = true;
+        if (unity) { params = UNITY_MSG[base] ? [UNITY_MSG[base]] : []; ret = 'void'; }
+        else if (iface.has(base)) { params = [iface.get(base)]; ret = 'void'; }
+        else if (ev != null) { params = ev ? [ev] : []; ret = 'void'; }
+        else {
+          fixed = false;
+          params = paramNames(s.params.map((x) => x.name)).map((n, i) => `${s.params[i].type} ${n}`);
+          ret = s.coroutine ? 'System.Collections.IEnumerator' : s.ret;
+        }
+        list.push({ raw, base, isStatic, unity, fixed, params, defs: fixed ? [] : s.params.map((x) => x.def), ret, coroutine: s.coroutine, types: fixed ? params.map((x) => x.split(' ')[0]) : s.params.map((x) => x.type) });
+      }
+    }
+    // overloads: Bridge renames them Name$1, Name$2… — back to one name when their parameter types tell them apart
+    const groups = new Map();
+    for (const m of list) { if (!groups.has(m.base)) groups.set(m.base, []); groups.get(m.base).push(m); }
+    for (const [base, g] of groups) {
+      // every parameter list a call can match: optional trailing parameters may be left out
+      const callable = (m) => {
+        let req = m.types.length;
+        while (req > 0 && m.defs[req - 1] !== undefined) req--;
+        const out = [];
+        for (let n = req; n <= m.types.length; n++) out.push(m.types.slice(0, n).join(','));
+        return out;
+      };
+      const all = g.flatMap(callable);
+      const distinct = new Set(all).size === all.length;
+      for (const m of g) m.name = ident(distinct ? base : m.raw.replace(/\$(\d+)$/, '_$1'));
+    }
+    // a static and an instance method Bridge keeps under the same name and parameter types (CS0111)
+    const seen = new Set();
+    for (const m of list) {
+      let key = m.name + '(' + m.types.join(',') + ')';
+      if (seen.has(key)) { m.name = ident(m.name.replace(/^@/, '') + (m.isStatic ? '_static' : '_instance')); key = m.name + '(' + m.types.join(',') + ')'; }
+      seen.add(key);
+    }
+    // optional parameters: only a trailing run of literals C# accepts as defaults
+    for (const m of list) {
+      let ok = true;
+      m.paramText = m.params.map((x, i) => x).slice();
+      for (let i = m.params.length - 1; i >= 0; i--) {
+        const d = m.defs[i];
+        if (!ok || d === undefined || (m.types[i] === 'object' && d !== 'null')) { ok = false; continue; }
+        m.paramText[i] = m.params[i] + ' = ' + d;
+      }
+    }
+    p.methodPlans.set(t.name, list);
+  }
+  // overrides: same name and parameter types as an ancestor's method → virtual there, override here
+  for (const t of model.types.values()) {
+    for (const m of p.methodPlans.get(t.name)) {
+      if (m.isStatic) continue;
+      for (const a of model.ancestors(t.name)) {
+        const am = (p.methodPlans.get(a) || []).find((x) => !x.isStatic && x.name === m.name && x.types.join(',') === m.types.join(','));
+        if (!am) continue;
+        am.virtual = true;
+        m.override = true;
+        m.ret = am.ret;   // C# requires the same return type
+        break;
+      }
+    }
+  }
+}
+
+/** Minified parameter names as C# identifiers: "$" → "_p0", duplicates numbered. */
+function paramNames(names) {
+  const used = new Set();
+  return names.map((n, i) => {
+    let s = /^[A-Za-z_][A-Za-z0-9_]*$/.test(n) ? n : 'p' + i;
+    while (used.has(s)) s += '_';
+    used.add(s);
+    return ident(s);
+  });
+}
+
+// ---------------------------------------------------------------- writing
+function literal(node, type, model) {
+  if (!node || /^(object|System\.)/.test(type) && type !== 'string') return undefined;
+  if (type === 'string' && node.type === 'StringLiteral') return JSON.stringify(node.value);
+  const lt = types.litType(node);
+  if ((type === 'int' && lt === 'int') || (type === 'float' && (lt === 'int' || lt === 'float')) || (type === 'bool' && lt === 'bool')) {
+    if (lt === 'bool') return node.type === 'BooleanLiteral' ? String(node.value) : node.argument.value ? 'false' : 'true';
+    const v = node.type === 'UnaryExpression' ? -node.argument.value : node.value;
+    return type === 'float' ? (Number.isInteger(v) ? String(v) : v + 'f') : String(v);
+  }
+  const path = types.memberPath(node);
+  if (path && model.enumNames().has(path.slice(0, path.lastIndexOf('.'))) && csTypeName(path.slice(0, path.lastIndexOf('.'))) === type) return csTypeName(path);
+  return undefined;
+}
+
+/** Property: getter/setter bodies for the plain field-accessor and PlayerPrefs patterns, a typed stub otherwise. */
+function propertyLines(p, t, name, src, isStatic, pad) {
+  const e = objectEntries(src);
+  const get = e.get || '', set = e.set || '';
+  const field = (get.match(/^function\s*\(\)\s*\{\s*return\s+this\.(\w+)\s*;?\s*\}$/) || [])[1];
+  const setField = (set.match(/^function\s*\((\w+)\)\s*\{\s*this\.(\w+)\s*=\s*\1\s*;?\s*\}$/) || [])[2];
+  const pp = get.match(/^function\s*\(\)\s*\{\s*return\s+UnityEngine\.PlayerPrefs\.Get(Int|Float|String)\(([\w.]+|"[^"]*"),\s*([^)]*)\)\s*;?\s*\}$/);
+  const ppSet = set.match(/^function\s*\((\w+)\)\s*\{\s*UnityEngine\.PlayerPrefs\.Set(Int|Float|String)\(([\w.]+|"[^"]*"),\s*\1\s*\)\s*;?\s*\}$/);
+  const cf = p.classFields.get(t.name) || { serialized: [], runtime: [], statics: [] };
+  const typeOfField = (f) => { const x = [...cf.serialized, ...cf.runtime, ...cf.statics].find((y) => y.name === f); return x ? x.type : null; };
+  const keyIsString = (k) => /^"/.test(k) || (() => { const i = k.lastIndexOf('.'); const c = k.slice(0, i), f = k.slice(i + 1); const x = (p.classFields.get(c) || { statics: [] }).statics.find((y) => y.name === f); return x && x.type === 'string'; })();
+  const mod = `public ${isStatic ? 'static ' : ''}`;
+  if (field && !isStatic && typeOfField(field)) {
+    const ty = typeOfField(field);
+    const setter = setField === field ? ` set => this.${field} = value;` : '';
+    return [`${pad}    ${mod}${ty} ${ident(name)} { get => this.${field};${setter} }`];
+  }
+  if (pp && keyIsString(pp[2]) && /^(-?[\d.]+|"[^"]*"|[\w.]+)$/.test(pp[3].trim())) {
+    const ty = { Int: 'int', Float: 'float', String: 'string' }[pp[1]];
+    const def = ty === 'float' && /^-?[\d.]+$/.test(pp[3].trim()) && !Number.isInteger(Number(pp[3])) ? pp[3].trim() + 'f' : pp[3].trim();
+    const setter = ppSet && ppSet[2] === pp[1] && ppSet[3] === pp[2] ? ` set => UnityEngine.PlayerPrefs.Set${pp[1]}(${pp[2]}, value);` : '';
+    return [`${pad}    ${mod}${ty} ${ident(name)} { get => UnityEngine.PlayerPrefs.Get${pp[1]}(${pp[2]}, ${def});${setter} }`];
+  }
+  // anything else: typed from what the getter returns, body kept for reference
+  const model = p.typeModel;
+  const returnType = (a) => {
+    if (!a) return null;
+    if (a.type === 'SequenceExpression') return returnType(a.expressions[a.expressions.length - 1]);
+    // Bridge.rValue(x) is x
+    if (a.type === 'CallExpression' && types.memberPath(a.callee) === 'Bridge.rValue' && a.arguments[0]) return returnType(a.arguments[0]);
+    if (a.type === 'MemberExpression' && !a.computed) {
+      const f = a.property.name;
+      if (a.object.type === 'ThisExpression') return typeOfField(f);
+      // Singleton$1(e).instance / UserData.instance: a static field of this class
+      const o = a.object.type === 'CallExpression' ? types.memberPath(a.object.callee) : types.memberPath(a.object);
+      const cls = o && (model.has(o) ? o : model.has(o + '$1') ? o + '$1' : null);
+      const x = cls && (p.classFields.get(cls) || { statics: [] }).statics.find((y) => y.name === f);
+      return x ? x.type : null;
+    }
+    if (a.type === 'CallExpression') {
+      // Utils.IntToBool(…): a static method whose return type is known
+      const cp = types.memberPath(a.callee) || '';
+      const i = cp.lastIndexOf('.');
+      const sig = i > 0 && p.signatures.get(cp.slice(0, i)) && p.signatures.get(cp.slice(0, i)).get(cp.slice(i + 1));
+      if (sig && sig.ret && sig.ret !== 'void' && sig.ret !== 'object') return sig.ret;
+      const pp2 = cp.match(/PlayerPrefs\.Get(Int|Float|String)$/);
+      if (pp2) return { Int: 'int', Float: 'float', String: 'string' }[pp2[1]];
+    }
+    return types.litType(a);
+  };
+  let ty = 'object';
+  const fn = types.parseFn(get);
+  if (fn) types.walk(fn.body, (n) => {
+    if (ty !== 'object' || n.type !== 'ReturnStatement' || !n.argument) return;
+    ty = returnType(n.argument) || 'object';
+  });
+  const lines = [`${pad}    ${mod}${ty} ${ident(name)}`, `${pad}    {`];
+  if (get) {
+    lines.push(`${pad}        get`, `${pad}        {`);
+    const tr = translateFunction(get);
+    if (tr) for (const l of tr.lines) for (const sub of commentSafe(l).split('\n')) lines.push(`${pad}            // ${sub}`);
+    lines.push(`${pad}            return default;`, `${pad}        }`);
+  }
+  if (set) {
+    lines.push(`${pad}        set`, `${pad}        {`);
+    const tr = translateFunction(set);
+    if (tr) for (const l of tr.lines) for (const sub of commentSafe(l).split('\n')) lines.push(`${pad}            // ${sub}`);
+    lines.push(`${pad}        }`);
+  }
+  lines.push(`${pad}    }`);
+  return lines;
+}
+
+/** Lines of one type (no namespace/usings); nested user types go inside it. */
+function classLines(p, className, kind, nested, pad) {
+  plan(p);
+  const model = p.typeModel;
+  const t = model.get(className);
+  if (!t) return legacyClassLines(p, className, kind, nested, pad);
+  const name = model.localName(className);
+  const generic = t.generic.length ? '<' + types.typeParamNames(t.generic.length).join(', ') + '>' : '';
+  const lines = [];
+  if (t.kind === 'enum') {
+    lines.push(`${pad}public enum ${name}`, `${pad}{`);
+    for (const [k, v] of model.enumValues(className)) lines.push(`${pad}    ${ident(k)} = ${v},`);
+    lines.push(`${pad}}`);
+    return lines;
+  }
+  if (t.kind === 'interface') return [`${pad}public interface ${name}${generic}`, `${pad}{`, `${pad}}`];
+  // base class: a user class, or the Unity base its chain ends on; components keep a Unity base even when the
+  // original one (UIBehaviour, Image…) would bring its own serialized fields along
+  let base = null;
+  if (t.baseRaw) {
+    const head = t.baseRaw.replace(/\(.*$/, '').trim();
+    if (model.has(head)) base = model.csType(t.baseRaw, t.generic);
+    else if (/^UnityEngine\.(MonoBehaviour|ScriptableObject)$/.test(head)) base = head;
+  }
+  // kind: how scenes/assets use the class ('mono' / 'scriptable'), null for a type only the code knows
+  if (!base && t.kind === 'class') {
+    if (model.isComponent(className) || kind === 'mono') base = 'UnityEngine.MonoBehaviour';
+    else if (model.isScriptable(className) || kind === 'scriptable') base = 'UnityEngine.ScriptableObject';
+  }
+  const plans = p.methodPlans.get(className) || [];
+  const ifaces = t.interfaces.map((i) => model.csType(i, t.generic)).filter((i) => {
+    const e = types.EVENT_INTERFACES[i.split('.').pop()];
+    // a Unity event interface stays only when its method exists here or in a base (else CS0535)
+    return !e || [className, ...model.ancestors(className)].some((c) => (p.methodPlans.get(c) || []).some((m) => m.name === e[0]));
+  });
+  const heads = [base, ...ifaces].filter(Boolean);
+  const cf = p.classFields.get(className) || { serialized: [], runtime: [], statics: [] };
+  const serializable = !base && (t.kind === 'struct' || cf.serialized.length || cf.runtime.length);
+  if (serializable) lines.push(`${pad}[System.Serializable]`);
+  lines.push(`${pad}public ${t.kind === 'struct' ? 'struct' : t.abstract ? 'abstract class' : 'class'} ${name}${generic}${heads.length ? ' : ' + heads.join(', ') : ''}`, `${pad}{`);
+  const isStruct = t.kind === 'struct';
+  const init = (f) => { if (isStruct) return ''; const v = literal(f.init, f.type, model); return v === undefined ? '' : ' = ' + v; };
+  for (const f of cf.serialized) lines.push(`${pad}    public ${f.type} ${ident(f.name)}${init(f)};${f.note || ''}`);
+  for (const f of cf.runtime) lines.push(`${pad}    ${isStruct ? '' : '[System.NonSerialized] '}public ${f.type} ${ident(f.name)}${init(f)};`);
+  for (const f of cf.statics) lines.push(`${pad}    public static ${f.type} ${ident(f.name)}${literal(f.init, f.type, model) !== undefined ? ' = ' + literal(f.init, f.type, model) : ''};`);
+  if (cf.serialized.length || cf.runtime.length || cf.statics.length) lines.push('');
+  const memberNames = new Set([...cf.serialized, ...cf.runtime, ...cf.statics].map((f) => f.name));
+  for (const [isStatic, props] of [[false, t.props], [true, t.statics.props]]) {
+    for (const [pname, src] of Object.entries(props)) {
+      if (memberNames.has(pname) || plans.some((m) => m.name === pname) || !/^[A-Za-z_]\w*$/.test(pname)) continue;
+      memberNames.add(pname);
+      lines.push(...propertyLines(p, t, pname, src, isStatic, pad), '');
+    }
+  }
+  const emitted = new Set();
+  for (const m of plans) {
+    const body = (m.isStatic ? t.statics.methods : t.methods)[m.raw];
+    const tr = translateFunction(body);
+    const access = m.unity && !m.virtual && !m.override ? '' : m.unity ? 'protected ' : 'public ';
+    const mods = m.isStatic ? 'static ' : m.override ? 'override ' : m.virtual ? 'virtual ' : '';
+    const ret = m.coroutine ? 'System.Collections.IEnumerator' : m.ret;
+    lines.push(`${pad}    ${access}${mods}${ret} ${m.name}(${m.paramText.join(', ')})`, `${pad}    {`);
+    if (tr && tr.lines.length) {
+      const jsParams = tr.params.length && !m.fixed ? ` — tham số gốc: (${tr.params.join(', ')})` : tr.params.length ? ` — tham số gốc: (${tr.params.join(', ')})` : '';
+      lines.push(`${pad}        // Dịch tự động từ JavaScript${jsParams}; kiểm tra rồi bỏ comment:`);
+      // multi-line lambdas come back as one string: comment every physical line, or the rest becomes code
+      for (const l of tr.lines) for (const sub of commentSafe(l).split('\n')) lines.push(`${pad}        // ${sub}`);
+    } else lines.push(...jsComment(body, pad + '        '));
+    if (m.coroutine) lines.push(`${pad}        yield break;`);
+    else if (ret !== 'void') lines.push(`${pad}        return default;`);
+    lines.push(`${pad}    }`, '');
+    emitted.add(m.base);
+  }
+  // UnityEvent targets the build calls but whose body was stripped: keep the binding alive
+  const events = (p.eventMethods && p.eventMethods.get(className)) || new Map();
+  for (const [mName, param] of events) {
+    if (emitted.has(mName)) continue;
+    lines.push(`${pad}    public void ${ident(mName)}(${param})`, `${pad}    {`, `${pad}    }`, '');
+  }
+  // nested types (enums, structs, helper classes declared inside this one)
+  for (const n of model.nestedIn(className)) lines.push(...classLines(p, n.name, null, nested, pad + '    '), '');
+  if (t.init) lines.push(`${pad}    // giá trị khởi tạo gốc (ctors.init):`, ...jsComment(t.init, pad + '    '));
+  while (lines[lines.length - 1] === '') lines.pop();
+  lines.push(`${pad}}`);
+  return lines;
+}
+
+/** Types the build has a deserializer for but no Bridge.define (very old Luna): fields only, as before. */
+function legacyClassLines(p, className, kind, nested, pad) {
   const fields = serializedFields(p, className);
   const name = csTypeName(className).split('.').pop();
   const base = kind === 'scriptable' ? 'UnityEngine.ScriptableObject' : kind === 'serializable' ? null : 'UnityEngine.MonoBehaviour';
@@ -206,62 +580,24 @@ function classLines(p, className, kind, nested, pad) {
   if (kind === 'serializable') lines.push(`${pad}[System.Serializable]`);
   lines.push(`${pad}public class ${name}${base ? ' : ' + base : ''}`, `${pad}{`);
   const avail = (t) => p.typeAvailable(t);
-  for (const f of fields) lines.push(`${pad}    public ${fieldType(f, nestedName, avail)} ${ident(f.name)};${typeNote(f, avail)}`);
-  // fields the game keeps at runtime only (Bridge "fields"/"statics" minus the serialized ones)
-  const extra = runtimeFields(p, className, info, new Set(fields.map((f) => f.name)));
-  for (const f of extra) lines.push(`${pad}    ${f.isStatic ? 'public static' : '[System.NonSerialized] public'} ${f.type} ${ident(f.name)};`);
-  if (fields.length || extra.length) lines.push('');
-  const methodName = (m) => ident(m.replace(/\$(\d+)$/, '_$1'));
-  const events = p.eventMethods.get(className) || new Map();
-  const emitted = new Set();
-  const emitMethod = (mName, body, isStatic) => {
-    const unity = !isStatic && Object.prototype.hasOwnProperty.call(UNITY_MSG, mName);
-    const isCoroutine = /GeneratorEnumerator/.test(body);
-    const tr = translateFunction(body);
-    const clean = methodName(mName);
-    // UnityEvent targets (Button.onClick…) must keep the signature the scene binds to
-    const evParam = events.get(mName.replace(/\$\d+$/, ''));
-    const params = unity ? UNITY_MSG[mName] : evParam != null ? evParam : '';
-    const ret = unity ? 'void' : isCoroutine ? 'public System.Collections.IEnumerator' : isStatic ? 'public static void' : 'public void';
-    lines.push(`${pad}    ${ret} ${clean}(${params})`, `${pad}    {`);
-    if (tr && tr.lines.length) {
-      const jsParams = tr.params.length ? ` — tham số gốc: (${tr.params.join(', ')})` : '';
-      lines.push(`${pad}        // Dịch tự động từ JavaScript${jsParams}; kiểm tra kiểu rồi bỏ comment:`);
-      // multi-line lambdas come back as one string: comment every physical line, or the rest becomes code
-      for (const l of tr.lines) for (const sub of commentSafe(l).split('\n')) lines.push(`${pad}        // ${sub}`);
-    } else lines.push(...jsComment(body, pad + '        '));
-    if (isCoroutine) lines.push(`${pad}        yield break;`);
-    lines.push(`${pad}    }`, '');
-    emitted.add(mName.replace(/\$\d+$/, ''));
-  };
-  for (const [mName, body] of Object.entries(info.methods)) emitMethod(mName, body, false);
-  for (const [mName, body] of Object.entries(info.staticMethods)) emitMethod(mName, body, true);
-  // event targets the build calls but whose body was stripped: keep the binding alive
-  for (const [mName, param] of events) {
-    if (emitted.has(mName)) continue;
-    lines.push(`${pad}    public void ${ident(mName)}(${param})`, `${pad}    {`, `${pad}    }`, '');
-  }
-  if (info.init) lines.push(`${pad}    // giá trị khởi tạo gốc (ctors.init):`, ...jsComment(info.init, pad + '    '));
+  for (const f of fields) lines.push(`${pad}    public ${fieldType(f, p.csNestedName, avail)} ${ident(f.name)};${typeNote(f, avail)}`);
   lines.push(`${pad}}`);
   return lines;
 }
 
+const HEADER = [
+  '// Dựng lại bởi Build Recover từ bản build Luna (Unity → Bridge.NET → JavaScript). Tên type, lớp cơ sở, field và kiểu',
+  '// serialize là thật; kiểu tham số / giá trị trả về suy ra từ cách code dùng. Thân hàm được dịch tự động từ JavaScript',
+  '// về C# và để trong comment: kiểm tra rồi bỏ comment.',
+];
+
 function classSource(p, className, kind) {
-  const full = csTypeName(className);
-  const dot = full.lastIndexOf('.');
-  const ns = dot > 0 ? full.slice(0, dot) : '';
+  plan(p);
+  const model = p.typeModel;
+  const ns = model.has(className) ? model.namespaceOf(className) : (() => { const full = csTypeName(className); const dot = full.lastIndexOf('.'); return dot > 0 ? full.slice(0, dot) : ''; })();
   const pad = ns ? '    ' : '';
-  const nested = new Map();
-  const body = classLines(p, className, kind, nested, pad);
-  // [Serializable] types used by fields go to one shared file (global namespace, written by writeScripts): two
-  // scripts sharing a type must not both define it, and every namespace can see the global one
-  if (!p.nestedTypes) p.nestedTypes = new Map();
-  for (const [dto, local] of nested) if (!p.nestedTypes.has(local)) p.nestedTypes.set(local, dto);
-  const lines = [
-    '// Dựng lại bởi Build Recover từ bản build Luna (Unity → Bridge.NET → JavaScript). Tên class, field và kiểu serialize',
-    '// là thật. Thân hàm được dịch tự động từ JavaScript về C# và để trong comment: kiểm tra kiểu rồi bỏ comment.',
-    'using UnityEngine;', '',
-  ];
+  const body = classLines(p, className, kind, null, pad);
+  const lines = [...HEADER, 'using UnityEngine;', ''];
   if (ns) lines.push(`namespace ${ns}`, '{');
   lines.push(...body);
   if (ns) lines.push('}');
@@ -274,47 +610,58 @@ const CRLF = new RegExp(String.fromCharCode(13) + String.fromCharCode(10) + '?',
 const commentSafe = (s) => String(s).replace(CRLF, String.fromCharCode(10)).replace(LINE_BREAKS, ' ');
 
 function jsComment(src, indent) {
-  const pretty = commentSafe(src).replace(/;(?=[^;\n])/g, ';\n').split('\n').slice(0, 200);
+  const pretty = commentSafe(src || '').replace(/;(?=[^;\n])/g, ';\n').split('\n').slice(0, 200);
   return pretty.map((l) => `${indent}// ${l.trim()}`);
 }
 
+function writeOne(p, className, kind, guid) {
+  const model = p.typeModel;
+  const ns = model.has(className) ? model.namespaceOf(className) : '';
+  const local = model.has(className) ? model.localName(className) : csTypeName(className).split('.').pop();
+  const rel = p.claim(`Assets/Scripts/${ns ? ns.split('.').join('/') + '/' : ''}${local}.cs`);
+  let src;
+  try { src = classSource(p, className, kind); } catch (e) { src = `// Không dựng được ${className}: ${e.message}\nusing UnityEngine;\npublic class ${local} : MonoBehaviour { }\n`; }
+  p.out.write(rel, src);
+  const imp = importers.mono();
+  const order = p.executionOrder && p.executionOrder.get(className);
+  if (order) imp.MonoImporter.executionOrder = order;
+  p.out.meta(rel, guid, imp);
+  p.count('scripts');
+}
+
 function writeScripts(p) {
+  plan(p);
+  const model = p.typeModel;
   const done = new Set();
+  // 1. scripts scenes/prefabs/assets use — their GUIDs are already in the YAML
   for (const [className, s] of p.scripts) {
     if (!s.user || done.has(className)) continue;
     done.add(className);
-    const full = csTypeName(className);
-    const parts = full.split('.');
-    const rel = p.claim(`Assets/Scripts/${parts.slice(0, -1).join('/')}${parts.length > 1 ? '/' : ''}${parts[parts.length - 1]}.cs`);
-    const kind = p.scriptKinds.get(className) || 'mono';
-    let src;
-    try { src = classSource(p, className, kind); } catch (e) { src = `// Không dựng được class ${className}: ${e.message}\nusing UnityEngine;\npublic class ${parts[parts.length - 1]} : MonoBehaviour { }\n`; }
-    p.out.write(rel, src);
-    const imp = importers.mono();
-    const order = p.executionOrder && p.executionOrder.get(className);
-    if (order) imp.MonoImporter.executionOrder = order;
-    p.out.meta(rel, s.guid, imp);
-    p.count('scripts');
+    // a type nested in another class is written inside it (Unity cannot bind a nested MonoBehaviour anyway)
+    if (model.has(className) && model.get(className).outer) continue;
+    writeOne(p, className, p.scriptKinds.get(className) || 'mono', s.guid);
   }
-  // shared [Serializable] field types (and the types they use in turn)
-  const types = p.nestedTypes || new Map();
-  if (!types.size) return;
-  const userNames = new Set([...p.scripts].filter(([, s]) => s.user).map(([c]) => csTypeName(c).split('.').pop()));
-  const lines = [
-    '// Kiểu [Serializable] mà field của các script dùng — Build Recover gom về một file để không định nghĩa trùng.',
-    'using UnityEngine;', '',
-  ];
+  // 2. every other type the code defines: base classes, Configs, enums, interfaces, helpers…
+  for (const t of model.types.values()) {
+    if (done.has(t.name) || t.outer) continue;
+    done.add(t.name);
+    const guid = ids.guidOf('script:' + t.name);
+    p.scripts.set(t.name, { guid, user: true, generated: true });
+    writeOne(p, t.name, null, guid);
+    p.count('typesFromCode');
+  }
+  // 3. [Serializable] field types the build has no Bridge.define for (old Luna): one shared file
+  const pending = p.nestedTypes || new Map();
+  if (!pending.size) return;
+  const lines = ['// Kiểu [Serializable] mà field của các script dùng — Build Recover gom về một file để không định nghĩa trùng.', 'using UnityEngine;', ''];
   const done2 = new Set();
   for (let changed = true; changed;) {
     changed = false;
-    for (const [local, dto] of [...types]) {
+    for (const [local, dto] of [...pending]) {
       if (done2.has(local)) continue;
       done2.add(local);
       changed = true;
-      if (userNames.has(local)) continue;
-      const nested = new Map();
-      lines.push(...classLines(p, dto, 'serializable', nested, ''), '');
-      for (const [d2, l2] of nested) if (!types.has(l2)) types.set(l2, d2);
+      lines.push(...legacyClassLines(p, dto, 'serializable', null, ''), '');
     }
   }
   const rel = p.claim('Assets/Scripts/_RecoveredTypes.cs');
@@ -322,4 +669,4 @@ function writeScripts(p) {
   p.out.meta(rel, ids.guidOf(rel), importers.mono());
 }
 
-module.exports = { writeScripts, bridgeDefine, objectEntries, serializedFields, csTypeName };
+module.exports = { writeScripts, bridgeDefine, objectEntries, serializedFields, csTypeName, plan, classSource };

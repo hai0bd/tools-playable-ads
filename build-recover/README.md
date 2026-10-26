@@ -116,7 +116,8 @@ phải bảng tự viết), nên đọc được mọi phiên bản Luna đã th
 
 Mở project: Unity Hub → *Add project from disk* (Unity cùng phiên bản trong `ProjectVersion.txt` hoặc mới
 hơn). `RECOVERY_REPORT.md` ghi các bước còn lại: import TMP Essential Resources, Spine (3.x cài bằng
-`.unitypackage`; 4.x đã trỏ sẵn git trong `Packages/manifest.json`), DOTween nếu game dùng.
+`.unitypackage`; 4.x đã trỏ sẵn git trong `Packages/manifest.json`), DOTween nếu game dùng (hoặc để tool tự chép bằng
+`--dotween`, xem dưới).
 
 Đã thử bằng Unity 2022.3.62f2 ở batchmode trên 7 creative (2D UI, 3D, skinned, ragdoll, Spine, URP): project
 import không lỗi, scene mở không thiếu script, camera render ra đúng cảnh như bản chơi Luna
@@ -133,6 +134,30 @@ băm MD4 từ tên class, như Unity; bảng lấy từ các DLL có trên máy 
 
 Field script trỏ tới kiểu của package chưa có trong project (Spine 3.x, DOTween…) được khai báo `UnityEngine.Object`
 để project compile ngay; comment cạnh field ghi kiểu gốc để đổi lại sau khi import package.
+
+**Script C#** (`core/luna/unity/types.js`, `csharp.js`) dựng từ `Bridge.define` của từng type:
+- **Đúng cây kế thừa**: `inherits` → lớp cơ sở thật (`DollController : Item`, `UserData : Singleton<UserData>`) và
+  interface; lớp con không khai lại field của lớp cơ sở (Unity sẽ báo "serialized multiple times"). Field serialize
+  của một lớp cơ sở không gắn vào scene nào lấy từ dữ liệu của lớp con.
+- **Mọi type trong code**, kể cả không có trong scene: lớp cơ sở, `Configs` (static field + giá trị khởi tạo),
+  enum (đủ giá trị số, lồng đúng chỗ: `DollBase.Configs.SOUND_TYPE`), interface, struct, generic (`Singleton<T>`),
+  property (accessor field và PlayerPrefs dựng thân thật).
+- **Kiểu suy ra** cho tham số, giá trị trả về và field runtime từ cách code dùng: giá trị truyền vào ở nơi gọi, gán
+  vào field, so sánh / `switch` với enum, `x | 0`, chỉ số mảng, tham số tuỳ chọn `void 0===t&&(t=!0)` (thành
+  `bool t = true`). Overload `Name$1` của Bridge về lại `Name` khi kiểu tham số phân biệt được; `Awake$1` của lớp
+  con thành `override`, lớp cơ sở thành `virtual`.
+- Thân hàm vẫn trong comment, nhưng bản dịch gần C# hơn: `if (a, b, x)` tách lệnh, `a && (b, c)` có ngoặc,
+  `Item.prototype.Start.call(this)` → `base.Start()`.
+- **Luna SDK**: `Assets/_Recovered/Scripts/LunaStub.cs` chỉ gồm các API code game gọi (`Playable.InstallFullGame`,
+  `Analytics.LogEvent`, enum `EventType`…), chỉ ghi log — xoá khi import plugin Luna thật.
+- **DOTween**: không có trên registry nào và không được phân phối lại, nên tool không mang theo; `--dotween <thư mục>`
+  (CLI, hoặc nút *DOTween cho playable Luna* trên trang, hoặc `BUILD_RECOVER_DOTWEEN`) chép bản DOTween / DOTween Pro
+  bạn có (một project Unity đã cài, hoặc bản tải về) vào `Assets/Plugins/Demigiant`, giữ `.meta` gốc — field kiểu
+  `DG.Tweening.*` khi đó giữ đúng kiểu.
+
+Kiểm tra compile không cần mở Unity: `node scripts/compile-check.js <project> --refs <Library/ScriptAssemblies của
+một project có UI/TMP/Spine>` (dùng Roslyn trong Unity Editor cài trên máy). `npm test` chạy bước này cho mọi sample
+trong `_out/luna/` khi đặt `BUILD_RECOVER_UNITY_REFS`.
 
 Giới hạn riêng của Luna: texture ở độ phân giải Luna đã nén; shader tuỳ biến chỉ còn GLSL đã biên dịch
 (tool tạo shader unlit thay thế cùng tên, cùng thuộc tính); font .ttf/.otf không có trong build; Avatar
