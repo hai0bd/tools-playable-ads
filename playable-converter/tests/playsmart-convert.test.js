@@ -200,4 +200,78 @@ assert.strictEqual(ended, 1, "phát lại gameEnd của mạng");
 eps.gameEnd(true);
 assert.strictEqual(ended, 1, "chỉ phát lại một lần");
 
+/* ── 8. Mintegral preload creative trong WebView ẩn: rAF không bắn ──
+ * Engine QICI chỉ tiến qua rAF, nên ps.hasReady không bật, không có gameReady, SDK không cho hiện:
+ * Mintegral từ chối "Blocked in loading" (Dress_Spy_V9, 2026-11-04).
+ */
+var RAF_TAG_RE = /<script data-playable-converter="playsmart-raf">([\s\S]*?)<\/script>/;
+assert.ok(RAF_TAG_RE.test(mtg), "Mintegral có fallback rAF");
+assert.ok(mtg.search(/<script\b/) === mtg.indexOf('<script data-playable-converter="playsmart-raf">'), "là thẻ script đầu tiên");
+assert.ok(!RAF_TAG_RE.test(alv), "mạng khác không chèn");
+var mtgTwice = core.convert(mtg, "playsmart", "mintegral", { androidUrl: NEW_URL }).html;
+assert.strictEqual((mtgTwice.match(/data-playable-converter="playsmart-raf"/g) || []).length, 1, "convert lại không chồng fallback");
+assert.ok(!RAF_TAG_RE.test(core.convert(mtg, "playsmart", "applovin", { androidUrl: NEW_URL }).html), "Mintegral → AppLovin gỡ fallback");
+
+// 8a. rAF không bắn thì callback vẫn chạy nhờ setTimeout; rAF bắn thì chạy đúng một lần.
+function runRaf(html) {
+    var timers = [], frames = [];
+    var sb = {
+        performance: { now: function () { return 1234; } },
+        requestAnimationFrame: function (cb) { frames.push(cb); return frames.length; },
+        cancelAnimationFrame: function (id) { frames[id - 1] = null; },
+        setTimeout: function (fn) { timers.push(fn); return timers.length; },
+        clearTimeout: function (id) { timers[id - 1] = null; }
+    };
+    sb.window = sb;
+    vm.createContext(sb);
+    vm.runInContext(html.match(RAF_TAG_RE)[1], sb);
+    return { sb: sb, timers: timers, frames: frames };
+}
+var hidden = runRaf(mtg), hiddenCalls = [];
+hidden.sb.requestAnimationFrame(function (t) { hiddenCalls.push(t); });
+hidden.timers[0]();
+assert.deepStrictEqual(hiddenCalls, [1234], "WebView ẩn: setTimeout chạy hộ với mốc performance.now()");
+var shown = runRaf(mtg), shownCalls = 0;
+shown.sb.requestAnimationFrame(function () { shownCalls++; });
+shown.frames[0](16);
+assert.strictEqual(shown.timers[0], null, "rAF bắn thì huỷ setTimeout");
+assert.strictEqual(shownCalls, 1);
+var cancelled = runRaf(mtg), cancelledCalls = 0;
+cancelled.sb.cancelAnimationFrame(cancelled.sb.requestAnimationFrame(function () { cancelledCalls++; }));
+assert.ok(cancelled.timers[0] === null && cancelled.frames[0] === null, "cancel gỡ cả hai đường");
+assert.strictEqual(cancelledCalls, 0);
+
+// 8b. Engine kẹt quá 5 giây vẫn báo gameReady đúng một lần, kể cả khi SDK cấp hàm muộn.
+var now = 0, readyCalls = 0;
+var kps = { hasReady: false, hasStart: false };
+var krun = runAdapter(mtg, { ps: kps, Date: { now: function () { return now; } } });
+now = 4900; krun.tick(1);
+krun.sandbox.window.gameReady = function () { readyCalls++; };
+krun.tick(1);
+assert.strictEqual(readyCalls, 0, "chưa tới hạn thì chờ engine");
+now = 5000; delete krun.sandbox.window.gameReady; krun.tick(1);
+krun.sandbox.window.gameReady = function () { readyCalls++; };
+krun.tick(1);
+assert.strictEqual(readyCalls, 1, "quá hạn: báo ngay khi SDK cấp hàm");
+kps.hasReady = true; krun.tick(3);
+assert.strictEqual(readyCalls, 1, "engine xong sau đó không báo lần hai");
+
+// 8c. Code game tự gọi window["gameReady"]() khi xong; adapter báo thêm thì SDK vẫn chỉ nhận một lần.
+var sdkReady = 0;
+var gps = { hasReady: false, hasStart: false };
+var grun = runAdapter(mtg, { ps: gps, gameReady: function () { sdkReady++; } });
+grun.sandbox.window["gameReady"]();
+gps.hasReady = true;
+grun.tick(3);
+assert.strictEqual(sdkReady, 1, "lời gọi gốc của game + adapter = 1 lần tới SDK");
+var lateReady = 0;
+var lps = { hasReady: false, hasStart: false };
+var lrun = runAdapter(mtg, { ps: lps });
+lrun.sandbox.window.gameReady = function () { lateReady++; };
+lrun.tick(1);
+lrun.sandbox.window["gameReady"]();
+lps.hasReady = true;
+lrun.tick(3);
+assert.strictEqual(lateReady, 1, "SDK cấp hàm muộn vẫn được bọc ở nhịp kế");
+
 console.log("playsmart-convert.test.js: OK");

@@ -84,12 +84,17 @@
      * (GRACE) rồi mới tự mồi — mồi sớm là game chạy lúc người dùng chưa nhìn thấy.
      */
     function buildBootstrap(target) {
-        var grace = target === "mintegral" ? 50 : 0;   // 50 nhịp × 100ms = 5 giây
+        var mintegral = target === "mintegral";
+        var grace = mintegral ? 50 : 0;   // 50 nhịp × 100ms = 5 giây
         return [
             "(function () {",
             "    var GRACE = " + grace + ", ticks = 0, readyTicks = 0;",
+            (mintegral ? "    var READY_DEADLINE_MS = 5000, startedAt = Date.now();" : ""),
             "    var timer = setInterval(function () {",
             "        if (++ticks > 900) { clearInterval(timer); console.warn(\"[playable-converter] hết giờ chờ ps.hasReady\"); return; }",
+            (mintegral ? "        _pcPsGuardReady();" : ""),
+            // Engine chưa xong vẫn báo ready: ps.checkLaunch tự chờ đủ hasReady && hasStart mới chạy game.
+            (mintegral ? "        if (Date.now() - startedAt >= READY_DEADLINE_MS) _pcPsNotifyReady();" : ""),
             "        if (!window.ps || !ps.hasReady) return;",
             (target === "mintegral" ? "        _pcPsNotifyReady();" : "        // (chỉ Mintegral mới cần phát lại gameReady)"),
             "        if (ps.hasStart) { clearInterval(timer); return; }",
@@ -98,7 +103,41 @@
             "        if (typeof window.gameStart === \"function\") window.gameStart();",
             "    }, 100);",
             "})();"
-        ];
+        ].filter(Boolean);
+    }
+
+    /**
+     * Giữ vòng lặp engine chạy khi SDK preload creative trong WebView ẩn (rAF không bắn): quá 100ms
+     * chưa có frame thì chạy callback bằng setTimeout. Thiếu nó, ps.hasReady không bao giờ bật.
+     */
+    function buildRafFallback() {
+        return [
+            "(function (w) {",
+            "    var raf = w.requestAnimationFrame, caf = w.cancelAnimationFrame;",
+            "    if (typeof raf !== \"function\" || typeof caf !== \"function\" || !w.performance) return;",
+            "    var FALLBACK_MS = 100, seq = 0, jobs = {};",
+            "    w.requestAnimationFrame = function (callback) {",
+            "        var id = ++seq, job = jobs[id] = { rafId: 0, timerId: 0 };",
+            "        function run(time) {",
+            "            if (jobs[id] !== job) return;",
+            "            delete jobs[id];",
+            "            caf.call(w, job.rafId);",
+            "            clearTimeout(job.timerId);",
+            "            callback(typeof time === \"number\" ? time : w.performance.now());",
+            "        }",
+            "        job.rafId = raf.call(w, run);",
+            "        job.timerId = setTimeout(run, FALLBACK_MS);",
+            "        return id;",
+            "    };",
+            "    w.cancelAnimationFrame = function (id) {",
+            "        var job = jobs[id];",
+            "        if (!job) return;",
+            "        delete jobs[id];",
+            "        caf.call(w, job.rafId);",
+            "        clearTimeout(job.timerId);",
+            "    };",
+            "})(window);"
+        ].join("\n");
     }
 
     function buildAdapter(target, options) {
@@ -119,7 +158,17 @@
                 "if (typeof window.install !== \"function\") window.install = _pcPsCta;",
                 "if (typeof window.gameClose !== \"function\") window.gameClose = function () { };",
                 "var _pcPsReady = false, _pcPsEnded = false;",
-                "function _pcPsNotifyReady() { if (_pcPsReady) return; _pcPsReady = true; window.gameReady && window.gameReady(); }",
+                // Code game cũng tự gọi window.gameReady: bọc hàm của SDK để mọi đường chỉ tới SDK một lần.
+                "function _pcPsGuardReady() {",
+                "    var fn = window.gameReady;",
+                "    if (typeof fn !== \"function\" || fn._pcPsGuard) return;",
+                "    var guarded = function () { if (_pcPsReady) return; _pcPsReady = true; return fn.apply(this, arguments); };",
+                "    guarded._pcPsGuard = true;",
+                "    window.gameReady = guarded;",
+                "}",
+                "_pcPsGuardReady();",
+                // SDK có thể cấp gameReady muộn: chưa có hàm thì chưa đánh dấu, nhịp sau gọi lại.
+                "function _pcPsNotifyReady() { _pcPsGuardReady(); if (_pcPsReady) return; window.gameReady && window.gameReady(); }",
                 "function _pcPsNotifyEnd() { if (_pcPsEnded) return; _pcPsEnded = true; window.gameEnd && window.gameEnd(); }",
                 // Game tự gọi window.gameEnd trong ps.gameEnd; bọc thêm để nếu SDK của mạng nạp muộn
                 // hơn lần gọi đó thì vẫn còn một lần phát lại.
@@ -153,8 +202,15 @@
         return html.slice(0, at) + content + "\n" + html.slice(at);
     }
 
+    /** Chèn ngay trước thẻ <script> đầu tiên để chạy trước mọi code engine. */
+    function insertBeforeFirstScript(html, content) {
+        var at = html.search(/<script\b/i);
+        if (at < 0) return insertBeforeClosingBody(html, content);
+        return html.slice(0, at) + content + html.slice(at);
+    }
+
     function removeInjected(html) {
-        return html.replace(/\s*<script\b[^>]*data-playable-converter=["']playsmart["'][^>]*>[\s\S]*?<\/script>/gi, "");
+        return html.replace(/\s*<script\b[^>]*data-playable-converter=["']playsmart(?:-raf)?["'][^>]*>[\s\S]*?<\/script>/gi, "");
     }
 
     function retarget(html, target, options) {
@@ -167,6 +223,9 @@
         if (typeof core.configureGoogleExitApi === "function") out = core.configureGoogleExitApi(out, target);
         if (!/\bfunction\s+gameStart\s*\(/.test(out)) warnings.push("Không thấy khai báo gameStart() của PlaySmart; mồi nổ có thể không gọi được gì.");
         out = insertBeforeClosingBody(out, '<script data-playable-converter="playsmart">\n' + buildAdapter(target, options) + "\n</script>");
+        if (target === "mintegral") {
+            out = insertBeforeFirstScript(out, '<script data-playable-converter="playsmart-raf">\n' + buildRafFallback() + "\n</script>");
+        }
         return { html: out, warnings: warnings };
     }
 
@@ -176,6 +235,7 @@
         retarget: retarget,
         stripAdLayer: stripAdLayer,
         buildAdapter: buildAdapter,
-        buildBootstrap: buildBootstrap
+        buildBootstrap: buildBootstrap,
+        buildRafFallback: buildRafFallback
     };
 });
