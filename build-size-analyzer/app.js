@@ -107,9 +107,16 @@ function base122Decode(str) {
     return new Uint8Array(out);
 }
 
-/** Lấy nội dung literal của window.__zip="…", gỡ escape của JS. */
-function extractZipLiteral(text) {
-    const key = 'window.__zip="';
+function base64Decode(str) {
+    const bin = atob(str.replace(/[^A-Za-z0-9+/=]/g, ''));
+    const out = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out;
+}
+
+/** Lấy nội dung chuỗi `window.<name>="…"` đã gỡ escape của JS; không có thì `null`. */
+function extractStringLiteral(text, name) {
+    const key = 'window.' + name + '="';
     const s = text.indexOf(key);
     if (s < 0) return null;
     let i = s + key.length, out = '';
@@ -129,6 +136,30 @@ function extractZipLiteral(text) {
     }
     return out;
 }
+
+/** Dấu bản quyền PlayStamp trong file: `{ notice, id }`, hoặc `null` nếu file không mang dấu. */
+function stampOf(text) {
+    const notice = extractStringLiteral(text, '__copyright');
+    const id = extractStringLiteral(text, '__zipCrc');
+    return notice !== null && id !== null ? { notice, id } : null;
+}
+
+/** Gỡ lớp XOR PlayStamp ngay trên `data`. Thuật toán phải khớp `playable/stamp-guard.js` của PlayStamp. */
+function unstamp(data, stamp) {
+    const key = stamp.notice + stamp.id;
+    let x = 0x811c9dc5;
+    for (let i = 0; i < key.length; i++) x = Math.imul(x ^ key.charCodeAt(i), 0x01000193) >>> 0;
+    x = x || 1;
+    for (let k = 0; k < data.length; k++) {
+        x ^= x << 13;
+        x ^= x >>> 17;
+        x ^= x << 5;
+        data[k] ^= x & 255;
+    }
+    return data;
+}
+
+const isZip = buf => buf.length >= 22 && buf[0] === 0x50 && buf[1] === 0x4B;
 
 /** Đọc central directory của ZIP. Không bung dữ liệu — chỉ lấy mục lục. */
 function readZipIndex(buf) {
@@ -171,17 +202,48 @@ async function inflateEntry(zip, ent) {
     return await new Response(stream).blob();
 }
 
-/** Đổi file HTML đóng gói thành danh sách entry giống hệt chế độ thư mục. */
-async function parsePackage(file, onProgress) {
-    const text = await file.text();
-    onProgress && onProgress('Đang tách chuỗi base122…');
-    const lit = extractZipLiteral(text);
-    if (!lit) throw new Error('Không tìm thấy window.__zip trong file. Đây có phải bản Bingo xuất ra không?');
+/** HTML của playable `{ text, bytes }`: file `.html` đọc thẳng, file `.zip` của kênh (Google, Mintegral…) lấy file HTML bên trong. */
+async function playableHtml(file, onProgress) {
+    if (!/\.zip$/i.test(file.name)) return { text: await file.text(), bytes: file.size };
+    onProgress && onProgress('Đang mở file ZIP của kênh…');
+    const outer = new Uint8Array(await file.arrayBuffer());
+    const index = isZip(outer) && readZipIndex(outer);
+    const page = index && index.find(e => /\.html?$/i.test(e.name));
+    if (!page) throw new Error('File ZIP này không chứa file HTML nào.');
+    return { text: await (await inflateEntry(outer, page)).text(), bytes: page.usize };
+}
 
-    onProgress && onProgress('Đang giải mã base122…');
+/** Tên công cụ đã đóng gói file, để hiện cạnh tên file. */
+function packerOf(text, stamp) {
+    const version = extractStringLiteral(text, '__PLAYSTAMP_VERSION__');
+    if (stamp || version !== null) return 'PlayStamp' + (version ? ' ' + version : '');
+    if (/\bbingoPlayableApiDemo\b/.test(text)) return 'Bingo';
+    if (/super[-_ ]?html/i.test(text)) return 'Super HTML';
+    return '';
+}
+
+/** Đổi file playable đóng gói (Bingo, PlayStamp, Super HTML) thành danh sách entry giống hệt chế độ thư mục. */
+async function parsePackage(file, onProgress) {
+    const html = await playableHtml(file, onProgress);
+    const text = html.text;
+    onProgress && onProgress('Đang tách chuỗi __zip…');
+    const lit = extractStringLiteral(text, '__zip');
+    if (!lit) throw new Error('Không tìm thấy window.__zip trong file. Đây có phải bản Bingo / PlayStamp xuất ra không?');
+    const encoding = extractStringLiteral(text, '__zipEncoding') === 'base64' ? 'base64' : 'base122';
+
+    onProgress && onProgress('Đang giải mã ' + encoding + '…');
     await new Promise(r => setTimeout(r, 0));
-    const zip = base122Decode(lit);
-    if (!(zip[0] === 0x50 && zip[1] === 0x4B)) throw new Error('Giải mã xong không ra ZIP hợp lệ.');
+    const zip = encoding === 'base64' ? base64Decode(lit) : base122Decode(lit);
+    const stamp = stampOf(text);
+    if (stamp && !isZip(zip)) {
+        onProgress && onProgress('Đang gỡ lớp mã hoá PlayStamp…');
+        unstamp(zip, stamp);
+    }
+    if (!isZip(zip)) {
+        throw new Error(stamp
+            ? 'Gỡ lớp mã hoá PlayStamp không ra ZIP hợp lệ: dòng bản quyền hoặc mã định danh trong file đã bị sửa.'
+            : 'Giải mã xong không ra ZIP hợp lệ.');
+    }
 
     onProgress && onProgress('Đang đọc mục lục ZIP…');
     const index = readZipIndex(zip);
@@ -197,10 +259,13 @@ async function parsePackage(file, onProgress) {
     return {
         entries,
         pkg: {
-            htmlSize: file.size,
-            b122Chars: lit.length,
+            fileSize: file.size,
+            fileKind: /\.zip$/i.test(file.name) ? 'ZIP' : 'HTML',
+            encoding,
+            payloadChars: lit.length,
             zipSize: zip.length,
-            overhead: file.size / zip.length - 1,
+            overhead: html.bytes / zip.length - 1,
+            packer: packerOf(text, stamp),
         },
     };
 }
@@ -685,8 +750,8 @@ function render(res, meta) {
 
     const stats = meta.pkg
         ? [
-            { k: 'File HTML', v: MB(meta.pkg.htmlSize), sub: 'thứ ad network nhận' },
-            { k: 'ZIP bên trong', v: MB(meta.pkg.zipSize), sub: 'base122 phụ trội +' + (meta.pkg.overhead * 100).toFixed(1) + '%' },
+            { k: 'File ' + meta.pkg.fileKind, v: MB(meta.pkg.fileSize), sub: 'thứ ad network nhận' },
+            { k: 'ZIP bên trong', v: MB(meta.pkg.zipSize), sub: meta.pkg.encoding + ' phụ trội +' + (meta.pkg.overhead * 100).toFixed(1) + '%' },
             { k: 'Trước nén', v: MB(res.totalRaw), sub: 'nén còn ' + Math.round(res.total / res.totalRaw * 100) + '%' },
             { k: 'Texture', v: MB(tex), sub: pct(tex) + '% gói' },
         ]
@@ -726,7 +791,8 @@ function render(res, meta) {
 
     $('file-count').textContent = res.count + ' file';
     $('summary-name').textContent = meta.rootName;
-    $('summary-meta').textContent = res.count + ' file · ' + MB(res.total) + ' MB' +
+    $('summary-meta').textContent = (meta.pkg && meta.pkg.packer ? meta.pkg.packer + ' · ' : '') +
+        res.count + ' file · ' + MB(res.total) + ' MB' +
         (meta.bundles ? ' · suy tên từ ' + meta.bundles + ' bundle' : '') +
         (meta.metaCount > 0 ? ' · đọc ' + meta.metaCount + ' file .meta' : '');
     $('summary').hidden = false;

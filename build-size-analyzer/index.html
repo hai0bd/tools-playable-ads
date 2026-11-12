@@ -45,12 +45,13 @@
             </label>
 
             <label class="drop-zone" id="pkg-zone" for="pkg-input" hidden>
-                <input id="pkg-input" type="file" accept=".html,.htm" hidden>
+                <input id="pkg-input" type="file" accept=".html,.htm,.zip" hidden>
                 <span class="upload-icon">⇩</span>
                 <strong>Bấm để chọn file playable đã đóng gói</strong>
-                <span>hoặc kéo thả file <code>.html</code> vào đây</span>
+                <span>hoặc kéo thả file <code>.html</code> / <code>.zip</code> vào đây</span>
                 <small>
-                    Đọc file HTML một-file do Bingo xuất ra: giải mã <code>base122</code>,
+                    Đọc file một-file do Bingo hoặc PlayStamp xuất ra (cả <code>.zip</code> của Google, Mintegral):
+                    giải mã <code>base122</code> / <code>base64</code>, gỡ lớp mã hoá của PlayStamp,
                     bung mục lục ZIP bên trong và thống kê <b>dung lượng thật sau nén</b>.<br>
                     Đây mới là con số ad network nhận được, khác với dung lượng thư mục build.
                 </small>
